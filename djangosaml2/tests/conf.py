@@ -74,7 +74,6 @@ def create_conf(sp_host='sp.example.com', idp_hosts=['idp.example.com']):
             'url': [('http://www.example.es', 'es'),
                     ('http://www.example.com', 'en')],
             },
-        'valid_for': 24,  # hours
         }
 
     for idp in idp_hosts:

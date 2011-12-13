@@ -76,18 +76,18 @@ def login(request,
 
     selected_idp = request.GET.get('idp', None)
     conf = config_loader()
-    if selected_idp is None and conf.is_wayf_needed():
+
+    # is a embedded wayf needed?
+    idps = conf.idps()
+    if selected_idp is None and len(idps) > 1:
         return render_to_response(wayf_template, {
-                'available_idps': conf.get_available_idps(),
+                'available_idps': idps.items(),
                 'came_from': came_from,
                 }, context_instance=RequestContext(request))
 
-    if selected_idp is not None:
-        selected_idp = conf.single_sign_on_service(selected_idp)
-
     client = Saml2Client(conf)
     (session_id, result) = client.authenticate(
-        location=selected_idp, relay_state=came_from,
+        entityid=selected_idp, relay_state=came_from,
         binding=BINDING_HTTP_REDIRECT,
         )
     assert len(result) == 2
@@ -126,7 +126,7 @@ def assertion_consumer_service(request, config_loader=config_settings_loader,
     outstanding_queries = oq_cache.outstanding_queries()
 
     # process the authentication response
-    response = client.response(post, conf['entityid'], outstanding_queries)
+    response = client.response(post, outstanding_queries)
     if response is None:
         return HttpResponse("SAML response has errors. Please check the logs")
 
@@ -237,12 +237,14 @@ def logout_service(request, config_loader=config_settings_loader,
         raise Http404('No SAMLResponse or SAMLRequest parameter found')
 
 
-def metadata(request, config_loader=config_settings_loader):
+DEFAULT_VALID_FOR = get_custom_setting('SAML_VALID_FOR', 24)
+
+def metadata(request, config_loader=config_settings_loader,
+             valid_for=DEFAULT_VALID_FOR):
     """Returns an XML with the SAML 2.0 metadata for this
     SP as configured in the settings.py file.
     """
     conf = config_loader()
-    valid_for = conf.get('valid_for', 24)
     metadata = entity_descriptor(conf, valid_for)
     return HttpResponse(content=str(metadata),
                         content_type="text/xml; charset=utf8")
