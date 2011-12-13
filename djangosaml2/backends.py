@@ -35,7 +35,7 @@ class Saml2Backend(ModelBackend):
         attributes = session_info['ava']
         saml_user = None
         for saml_attr, django_fields in attribute_mapping.items():
-            if 'username' in django_fields:
+            if 'username' in django_fields and saml_attr in attributes:
                 saml_user = attributes[saml_attr][0]
 
         if saml_user is None:
