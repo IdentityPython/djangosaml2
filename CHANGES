@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.3.2 (2011-12-13)
+------------------
+- Avoid a crash when reading the SAML attribute that maps to the Django
+  username
+
 0.3.1 (2011-12-01)
 ------------------
 - Load the config in the render method of the idplist templatetag to
