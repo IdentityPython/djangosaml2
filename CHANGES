@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.3.3 (2012-02-14)
+------------------
+- Freeze the version of pysaml2 since we are not (yet!) compatible with
+  version 0.4.0
+
 0.3.2 (2011-12-13)
 ------------------
 - Avoid a crash when reading the SAML attribute that maps to the Django
