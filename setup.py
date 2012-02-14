@@ -37,7 +37,7 @@ setup(
         "Topic :: Security",
         "Topic :: Software Development :: Libraries :: Application Frameworks",
         ],
-    keywords="pysaml2 django",
+    keywords="django,pysaml2,saml2,federated authentication,authentication",
     author="Yaco Sistemas",
     author_email="lgs@yaco.es",
     url="https://bitbucket.org/lgs/djangosaml2",
