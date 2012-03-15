@@ -46,6 +46,6 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        'pysaml2==0.2.1',
+        'pysaml2==0.4.0',
         ],
     )
