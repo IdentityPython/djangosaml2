@@ -60,7 +60,9 @@ def auth_response(identity, in_response_to, sp_conf):
                 },
             'key_file': os.path.join(BASEDIR, 'idpcert.key'),
             'cert_file': os.path.join(BASEDIR, 'idpcert.pem'),
-            'metadata': '',
+            'metadata': {
+                'local': [os.path.join(BASEDIR, 'sp_metadata.xml')],
+                },
             })
     server = Server("", idp_conf)
     server.ident = Identifier(FakeDb())
