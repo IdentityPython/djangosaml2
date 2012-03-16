@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 try:
     from xml.etree import ElementTree
 except ImportError:
@@ -42,6 +44,9 @@ from djangosaml2.conf import config_settings_loader
 from djangosaml2.signals import post_authenticated
 
 
+logger = logging.getLogger('djangosaml2')
+
+
 def _set_subject_id(session, subject_id):
     session['_saml2_subject_id'] = subject_id
 
@@ -67,9 +72,12 @@ def login(request,
     using the pysaml2 library to create the AuthnRequest.
     It uses the SAML 2.0 Http Redirect protocol binding.
     """
+    logger.debug('Login process started')
+
     came_from = request.GET.get('next', settings.LOGIN_REDIRECT_URL)
 
     if not request.user.is_anonymous():
+        logger.debug('User is already logged in')
         return render_to_response(authorization_error_template, {
                 'came_from': came_from,
                 }, context_instance=RequestContext(request))
@@ -80,6 +88,7 @@ def login(request,
     # is a embedded wayf needed?
     idps = conf.idps()
     if selected_idp is None and len(idps) > 1:
+        logger.debug('A discovery process is needed')
         return render_to_response(wayf_template, {
                 'available_idps': idps.items(),
                 'came_from': came_from,
@@ -89,18 +98,21 @@ def login(request,
     try:
         (session_id, result) = client.authenticate(
             entityid=selected_idp, relay_state=came_from,
-            binding=BINDING_HTTP_REDIRECT,
+            binding=BINDING_HTTP_REDIRECT, log=logger,
             )
     except TypeError, e:
+        logger.error('Unable to know which IdP to use')
         return HttpResponse(unicode(e))
 
     assert len(result) == 2
     assert result[0] == 'Location'
     location = result[1]
 
+    logger.debug('Saving the session_id in the OutstandingQueries cache')
     oq_cache = OutstandingQueriesCache(request.session)
     oq_cache.set(session_id, came_from)
 
+    logger.debug('Redirecting the user to the IdP')
     return HttpResponseRedirect(location)
 
 
@@ -122,6 +134,8 @@ def assertion_consumer_service(request, config_loader=config_settings_loader,
     djangosaml2.backends.Saml2Backend that should be
     enabled in the settings.py
     """
+    logger.debug('Assertion Consumer Service started')
+
     conf = config_loader()
     post = {'SAMLResponse': request.POST['SAMLResponse']}
     client = Saml2Client(conf, identity_cache=IdentityCache(request.session))
@@ -130,8 +144,9 @@ def assertion_consumer_service(request, config_loader=config_settings_loader,
     outstanding_queries = oq_cache.outstanding_queries()
 
     # process the authentication response
-    response = client.response(post, outstanding_queries)
+    response = client.response(post, outstanding_queries, logger)
     if response is None:
+        logger.error('SAML response is None')
         return HttpResponse("SAML response has errors. Please check the logs")
 
     session_id = response.session_id()
@@ -141,6 +156,7 @@ def assertion_consumer_service(request, config_loader=config_settings_loader,
     session_info = response.session_info()
 
     if 'djangosaml2.backends.Saml2Backend' not in settings.AUTHENTICATION_BACKENDS:
+        logger.debug('Prepend djangosaml2 backend to the Authentication Backends')
         settings.AUTHENTICATION_BACKENDS = (('djangosaml2.backends.Saml2Backend', )
                                             + settings.AUTHENTICATION_BACKENDS)
 
@@ -149,19 +165,23 @@ def assertion_consumer_service(request, config_loader=config_settings_loader,
     if callable(create_unknown_user):
         create_unknown_user = create_unknown_user()
 
+    logger.debug('Trying to authenticate the user')
     user = auth.authenticate(session_info=session_info,
                              attribute_mapping=attribute_mapping,
                              create_unknown_user=create_unknown_user)
     if user is None:
-        return HttpResponse("user not valid")
+        logger.error('The user is None')
+        return HttpResponse("There were problems trying to authenticate the user")
 
     auth.login(request, user)
     _set_subject_id(request.session, session_info['name_id'])
 
+    logger.debug('Sending the post_authenticated signal')
     post_authenticated.send_robust(sender=user, session_info=session_info)
 
     # redirect the user to the view where he came from
     relay_state = request.POST.get('RelayState', '/')
+    logger.debug('Redirecting to the RelayState: ' + relay_state)
     return HttpResponseRedirect(relay_state)
 
 
