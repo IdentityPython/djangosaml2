@@ -94,11 +94,11 @@ def login(request,
                 'came_from': came_from,
                 }, context_instance=RequestContext(request))
 
-    client = Saml2Client(conf)
+    client = Saml2Client(conf, logger=logger)
     try:
         (session_id, result) = client.authenticate(
             entityid=selected_idp, relay_state=came_from,
-            binding=BINDING_HTTP_REDIRECT, log=logger,
+            binding=BINDING_HTTP_REDIRECT,
             )
     except TypeError, e:
         logger.error('Unable to know which IdP to use')
@@ -138,13 +138,14 @@ def assertion_consumer_service(request, config_loader=config_settings_loader,
 
     conf = config_loader()
     post = {'SAMLResponse': request.POST['SAMLResponse']}
-    client = Saml2Client(conf, identity_cache=IdentityCache(request.session))
+    client = Saml2Client(conf, identity_cache=IdentityCache(request.session),
+                         logger=logger)
 
     oq_cache = OutstandingQueriesCache(request.session)
     outstanding_queries = oq_cache.outstanding_queries()
 
     # process the authentication response
-    response = client.response(post, outstanding_queries, logger)
+    response = client.response(post, outstanding_queries)
     if response is None:
         logger.error('SAML response is None')
         return HttpResponse("SAML response has errors. Please check the logs")
@@ -192,7 +193,8 @@ def echo_attributes(request,
     """Example view that echo the SAML attributes of an user"""
     state = StateCache(request.session)
     client = Saml2Client(config_loader(), state_cache=state,
-                         identity_cache=IdentityCache(request.session))
+                         identity_cache=IdentityCache(request.session),
+                         logger=logger)
     subject_id = _get_subject_id(request.session)
     identity = client.users.get_identity(subject_id,
                                          check_not_on_or_after=False)
@@ -207,13 +209,16 @@ def logout(request, config_loader=config_settings_loader):
     This view initiates the SAML2 Logout request
     using the pysaml2 library to create the LogoutRequest.
     """
+    logger.debug('Logout process started')
     state = StateCache(request.session)
     client = Saml2Client(config_loader(), state_cache=state,
-                         identity_cache=IdentityCache(request.session))
+                         identity_cache=IdentityCache(request.session),
+                         logger=logger)
     subject_id = _get_subject_id(request.session)
     session_id, code, head, body = client.global_logout(subject_id)
     headers = dict(head)
     state.sync()
+    logger.debug('Redirecting to the IdP to continue the logout process')
     return HttpResponseRedirect(headers['Location'])
 
 
@@ -228,21 +233,26 @@ def logout_service(request, config_loader=config_settings_loader,
     we didn't initiate the process as a single logout
     request started by another SP.
     """
+    logger.debug('Logout service started')
     conf = config_loader()
     state = StateCache(request.session)
     client = Saml2Client(conf, state_cache=state,
-                         identity_cache=IdentityCache(request.session))
+                         identity_cache=IdentityCache(request.session),
+                         logger=logger)
 
     if 'SAMLResponse' in request.GET:  # we started the logout
+        logger.debug('Receiving a logout response from the IdP')
         response = client.logout_response(request.GET['SAMLResponse'],
                                           binding=BINDING_HTTP_REDIRECT)
         state.sync()
         if response and response[1] == '200 Ok':
             return django_logout(request, next_page=next_page)
         else:
+            logger.error('Unknown error during the logout')
             return HttpResponse('Error during logout')
 
     elif 'SAMLRequest' in request.GET:  # logout started by the IdP
+        logger.debug('Receiving a logout request from the IdP')
         subject_id = _get_subject_id(request.session)
         response, success = client.logout_request(request.GET, subject_id)
         state.sync()
@@ -256,8 +266,10 @@ def logout_service(request, config_loader=config_settings_loader,
             url = response[0][1]
             return HttpResponseRedirect(url)
         else:
+            logger.error('Unknown error during the logout')
             return HttpResponse('Error during logout')
     else:
+        logger.error('No SAMLResponse or SAMLRequest parameter found')
         raise Http404('No SAMLResponse or SAMLRequest parameter found')
 
 
