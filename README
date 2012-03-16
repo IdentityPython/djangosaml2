@@ -292,6 +292,30 @@ going to the http://localhost:8000/saml2/metadata url. If you have included
 the djangosaml2 urls under a different url prefix you need to correct this
 url.
 
+SimpleSAMLphp issues
+--------------------
+As of SimpleSAMLphp 1.8.2 there is a problem if you specify attributes in
+the SP configuration. When the SimpleSAMLphp metadata parser converts the
+XML into its custom php format it puts the following option::
+
+  'attributes.NameFormat' => 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri'
+
+But it need to be replaced by this one::
+
+  'AttributeNameFormat' => 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri'
+
+Otherwise the Assertions sent from the IdP to the SP will have a wrong
+Attribute Name Format and pysaml2 will be confused.
+
+Furthermore if you have a AttributeLimit filter in your SimpleSAMLphp
+configuration  you will need to enable another attribute filter just
+before to make sure that the AttributeLimit does not remove the attributes
+from the authentication source. The filter you need to add is an AttributeMap
+filter like this::
+
+  10 => array(
+             'class' => 'core:AttributeMap', 'name2oid'
+        ),
 
 Testing
 =======
