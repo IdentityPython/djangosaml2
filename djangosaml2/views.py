@@ -86,10 +86,14 @@ def login(request,
                 }, context_instance=RequestContext(request))
 
     client = Saml2Client(conf)
-    (session_id, result) = client.authenticate(
-        entityid=selected_idp, relay_state=came_from,
-        binding=BINDING_HTTP_REDIRECT,
-        )
+    try:
+        (session_id, result) = client.authenticate(
+            entityid=selected_idp, relay_state=came_from,
+            binding=BINDING_HTTP_REDIRECT,
+            )
+    except TypeError, e:
+        return HttpResponse(unicode(e))
+
     assert len(result) == 2
     assert result[0] == 'Location'
     location = result[1]
