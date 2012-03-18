@@ -1,6 +1,13 @@
 Changes
 =======
 
+0.4.0 (2012-03-18)
+------------------
+- Upgrade pysaml2 dependency to version 0.4.0 (update our tests as a result
+  of this)
+- Add logging calls to make debugging easier
+- Use the Django configured logger in pysaml2
+
 0.3.3 (2012-02-14)
 ------------------
 - Freeze the version of pysaml2 since we are not (yet!) compatible with
