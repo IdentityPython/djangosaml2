@@ -1,6 +1,10 @@
 Changes
 =======
 
+0.4.1 (2012-03-19)
+------------------
+- Upgrade pysaml2 dependency to version 0.4.1
+
 0.4.0 (2012-03-18)
 ------------------
 - Upgrade pysaml2 dependency to version 0.4.0 (update our tests as a result
