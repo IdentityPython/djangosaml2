@@ -21,6 +21,7 @@ import urlparse
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
 from django.contrib.auth.models import User
+from django.template import Template, Context
 from django.test import TestCase
 
 from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
@@ -59,6 +60,9 @@ class SAML2Tests(TestCase):
         oq_cache.set(session_id, came_from)
         session.save()
         self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
+
+    def render_template(self, text):
+        return Template(text).render(Context())
 
     def test_login_one_idp(self):
         # monkey patch SAML configuration
@@ -335,3 +339,20 @@ ID4zT0FcZASGuthM56rRJJSx
         self.do_login()
 
         post_authenticated.disconnect(dispatch_uid='test_signal')
+
+    def test_idplist_templatetag(self):
+        settings.SAML_CONFIG = conf.create_conf(sp_host='sp.example.com',
+                                                idp_hosts=['idp1.example.com',
+                                                           'idp2.example.com',
+                                                           'idp3.example.com'])
+        rendered = self.render_template(
+            '{% load idplist %}'
+            '{% idplist as idps %}'
+            '{% for url, name in idps.items %}'
+            '{{ url }} - {{ name }}; '
+            '{% endfor %}'
+            )
+
+        expected = u'https://idp2.example.com/simplesaml/saml2/idp/metadata.php - idp2.example.com IdP; https://idp3.example.com/simplesaml/saml2/idp/metadata.php - idp3.example.com IdP; https://idp1.example.com/simplesaml/saml2/idp/metadata.php - idp1.example.com IdP; '
+
+        self.assertEqual(rendered, expected)
