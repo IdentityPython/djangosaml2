@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.4.2 (2012-03-23)
+------------------
+- Fix a crash in the idplist templatetag about using an old pysaml2 function
+- Added a test for the previous crash
+
 0.4.1 (2012-03-19)
 ------------------
 - Upgrade pysaml2 dependency to version 0.4.1
