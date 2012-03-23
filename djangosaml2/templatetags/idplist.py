@@ -26,7 +26,7 @@ class IdPListNode(template.Node):
 
     def render(self, context):
         conf = config_settings_loader()
-        context[self.variable_name] = conf.get_available_idps()
+        context[self.variable_name] = conf.idps()
         return ''
 
 
