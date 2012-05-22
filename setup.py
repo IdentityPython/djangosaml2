@@ -23,7 +23,7 @@ def read(*rnames):
 
 setup(
     name='djangosaml2',
-    version='0.4.2',
+    version='0.5.0',
     description='pysaml2 integration in Django',
     long_description='\n\n'.join([read('README'), read('CHANGES')]),
     classifiers=[
