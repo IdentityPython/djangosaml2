@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.5.0 (2012-05-22)
+------------------
+- Support for additional attributes other than the ones that get mapped
+  into the User model. Those attributes get stored in the UserProfile model.
+
 0.4.2 (2012-03-23)
 ------------------
 - Fix a crash in the idplist templatetag about using an old pysaml2 function
