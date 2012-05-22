@@ -156,11 +156,6 @@ def assertion_consumer_service(request, config_loader=config_settings_loader,
     # authenticate the remote user
     session_info = response.session_info()
 
-    if 'djangosaml2.backends.Saml2Backend' not in settings.AUTHENTICATION_BACKENDS:
-        logger.debug('Prepend djangosaml2 backend to the Authentication Backends')
-        settings.AUTHENTICATION_BACKENDS = (('djangosaml2.backends.Saml2Backend', )
-                                            + settings.AUTHENTICATION_BACKENDS)
-
     if callable(attribute_mapping):
         attribute_mapping = attribute_mapping()
     if callable(create_unknown_user):

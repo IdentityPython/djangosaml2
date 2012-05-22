@@ -65,6 +65,26 @@ do to make sure it is compatible with your Django version and environment.
   as you run any other Django application test suite. Just type
   ``python manage.py test djangosaml2``
 
+Then you have to add the djangosaml2.backends.Saml2Backend
+authentication backend to the list of authentications backends.
+By default only the ModelBackend included in Django is configured.
+A typical configuration would look like this::
+
+  AUTHENTICATION_BACKENDS = (
+      'django.contrib.auth.backends.ModelBackend',
+      'djangosaml2.backends.Saml2Backend',
+  )
+
+.. note::
+
+  Before djangosaml2 0.5.0 this authentication backend was
+  automatically added by djangosaml2. This turned out to be
+  a bad idea since some applications want to use their own
+  custom policies for authorization and the authentication
+  backend is a good place to define that. Starting from
+  djangosaml2 0.5.0 it is not possible to define such
+  backends.
+
 Finally we have to tell Django what is the new login url we want to use::
 
   LOGIN_URL = '/saml2/login/'
