@@ -265,6 +265,22 @@ and decrypt the SAML2 assertions.
   forget to order a real one when you go into production.
 
 
+Custom and dynamic configuration loading
+........................................
+
+By default, djangosaml2 reads the pysaml2 configuration options from the
+SAML_CONFIG setting but sometimes you want to read this information from
+another place, like a file or a database. Sometimes you even want this
+configuration to be different depending on the request.
+
+Starting from djangosaml2 0.5.0 you can define your own configuration
+loader which is a callable that accepts a request parameter and returns
+a saml2.config.SPConfig object. In order to do so you set the following
+setting::
+
+  SAML_CONFIG_LOADER = 'python.path.to.your.callable'
+
+
 User attributes
 ---------------
 

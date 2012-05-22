@@ -3,10 +3,12 @@ Changes
 
 0.5.0 (2012-05-22)
 ------------------
-- Support for additional attributes other than the ones that get mapped
-  into the User model. Those attributes get stored in the UserProfile model.
+- Allow defining custom config loaders. They can be dynamic depending on
+  the request.
 - Do not automatically add the authentication backend. This way
   we allow other people to add their own backends.
+- Support for additional attributes other than the ones that get mapped
+  into the User model. Those attributes get stored in the UserProfile model.
 
 0.4.2 (2012-03-23)
 ------------------

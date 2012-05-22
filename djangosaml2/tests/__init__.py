@@ -31,6 +31,7 @@ from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
 from djangosaml2 import views
 from djangosaml2.backends import Saml2Backend
 from djangosaml2.cache import OutstandingQueriesCache
+from djangosaml2.conf import get_config_loader
 from djangosaml2.tests import conf
 from djangosaml2.tests.auth_response import auth_response
 from djangosaml2.tests.models import TestProfile
@@ -149,7 +150,7 @@ class SAML2Tests(TestCase):
         settings.SAML_CONFIG = conf.create_conf(sp_host='sp.example.com',
                                                 idp_hosts=['idp.example.com'])
 
-        config = views.config_settings_loader()
+        config = get_config_loader(views.DEFAULT_CONFIG_LOADER)
         # session_id should start with a letter since it is a NCName
         session_id = "a0123456789abcdef0123456789abcdef"
         came_from = '/another-view/'
@@ -190,7 +191,7 @@ class SAML2Tests(TestCase):
 
     def do_login(self):
         """Auxiliary method used in several tests (mainly logout tests)"""
-        config = views.config_settings_loader()
+        config = get_config_loader(views.DEFAULT_CONFIG_LOADER)
         session_id = "a0123456789abcdef0123456789abcdef"
         came_from = '/another-view/'
         saml_response = auth_response({'uid': 'student'}, session_id, config)
