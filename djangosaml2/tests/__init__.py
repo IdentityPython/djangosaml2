@@ -21,15 +21,19 @@ import urlparse
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
 from django.contrib.auth.models import User
+from django.core.management import call_command
+from django.db.models import loading
 from django.template import Template, Context
 from django.test import TestCase
 
 from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
 
 from djangosaml2 import views
+from djangosaml2.backends import Saml2Backend
 from djangosaml2.cache import OutstandingQueriesCache
 from djangosaml2.tests import conf
 from djangosaml2.tests.auth_response import auth_response
+from djangosaml2.tests.models import TestProfile
 from djangosaml2.signals import post_authenticated
 
 
@@ -356,3 +360,57 @@ ID4zT0FcZASGuthM56rRJJSx
         expected = u'https://idp2.example.com/simplesaml/saml2/idp/metadata.php - idp2.example.com IdP; https://idp3.example.com/simplesaml/saml2/idp/metadata.php - idp3.example.com IdP; https://idp1.example.com/simplesaml/saml2/idp/metadata.php - idp1.example.com IdP; '
 
         self.assertEqual(rendered, expected)
+
+
+class Saml2BackendTests(TestCase):
+
+    def setUp(self):
+        # with Django 1.4 we can patch the settings in a much
+        # better way
+        self.old_installed_apps = settings.INSTALLED_APPS
+        settings.INSTALLED_APPS += (
+            'djangosaml2.tests',
+            )
+        # create the database tables for the tests models
+        loading.cache.loaded = False
+        call_command('syncdb', verbosity=0)
+
+        self.old_auth_profile_module = settings.AUTH_PROFILE_MODULE
+        settings.AUTH_PROFILE_MODULE = 'tests.TestProfile'
+
+    def tearDown(self):
+        settings.INSTALLED_APPS = self.old_installed_apps
+        settings.AUTH_PROFILE_MODULE = self.old_auth_profile_module
+
+    def test_update_user(self):
+
+        # we need a user
+        user = User.objects.create(username='john')
+
+        backend = Saml2Backend()
+
+        attribute_mapping = {
+            'uid': ('username', ),
+            'mail': ('email', ),
+            'cn': ('first_name', ),
+            'sn': ('last_name', ),
+            }
+        attributes = {
+            'uid': ('john', ),
+            'mail': ('john@example.com', ),
+            'cn': ('John', ),
+            'sn': ('Doe', ),
+            }
+        backend.update_user(user, attributes, attribute_mapping)
+        self.assertEquals(user.email, 'john@example.com')
+        self.assertEquals(user.first_name, 'John')
+        self.assertEquals(user.last_name, 'Doe')
+
+        # now we create a user profile and link it to the user
+        profile = TestProfile.objects.create(user=user)
+
+        attribute_mapping['saml_age'] = ('age', )
+        attributes['saml_age'] = ('22', )
+        backend.update_user(user, attributes, attribute_mapping)
+
+        self.assertEquals(user.get_profile().age, '22')
