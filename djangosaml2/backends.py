@@ -16,7 +16,8 @@
 import logging
 
 from django.contrib.auth.backends import ModelBackend
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, SiteProfileNotAvailable
+from django.core.exceptions import ObjectDoesNotExist
 
 logger = logging.getLogger('djangosaml2')
 
@@ -98,22 +99,41 @@ class Saml2Backend(ModelBackend):
         """Update a user with a set of attributes and returns the updated user.
 
         By default it uses a mapping defined in the settings constant
-        SAML_ATTRIBUTE_MAPPING.
+        SAML_ATTRIBUTE_MAPPING. For each attribute, if the user object has
+        that field defined it will be set, otherwise it will try to set
+        it in the profile object.
         """
         if not attribute_mapping:
             return user
 
-        modified = False
+        try:
+            profile = user.get_profile()
+        except ObjectDoesNotExist:
+            profile = None
+        except SiteProfileNotAvailable:
+            profile = None
+
+        user_modified = False
+        profile_modified = False
         for saml_attr, django_attrs in attribute_mapping.items():
             try:
                 for attr in django_attrs:
-                    setattr(user, attr, attributes[saml_attr][0])
-                modified = True
+                    if hasattr(user, attr):
+                        setattr(user, attr, attributes[saml_attr][0])
+                        user_modified = True
+
+                    elif profile is not None and hasattr(profile, attr):
+                        setattr(profile, attr, attributes[saml_attr][0])
+                        profile_modified = True
+
             except KeyError:
                 # the saml attribute is missing
                 pass
 
-        if modified or force_save:
+        if user_modified or force_save:
             user.save()
+
+        if profile_modified or force_save:
+            profile.save()
 
         return user
