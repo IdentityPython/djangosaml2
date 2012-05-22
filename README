@@ -82,7 +82,7 @@ A typical configuration would look like this::
   a bad idea since some applications want to use their own
   custom policies for authorization and the authentication
   backend is a good place to define that. Starting from
-  djangosaml2 0.5.0 it is not possible to define such
+  djangosaml2 0.5.0 it is now possible to define such
   backends.
 
 Finally we have to tell Django what is the new login url we want to use::
