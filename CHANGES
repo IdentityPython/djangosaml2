@@ -5,6 +5,8 @@ Changes
 ------------------
 - Support for additional attributes other than the ones that get mapped
   into the User model. Those attributes get stored in the UserProfile model.
+- Do not automatically add the authentication backend. This way
+  we allow other people to add their own backends.
 
 0.4.2 (2012-03-23)
 ------------------
