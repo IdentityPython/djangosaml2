@@ -280,6 +280,16 @@ SAML_ATTRIBUTE_MAPPING option in your settings.py::
 where the keys of this dictionary are SAML user attributes and the values
 are Django User attributes.
 
+If you are using Django user profile objects to store extra attributes
+about your user you can add those attributes to the SAML_ATTRIBUTE_MAPPING
+dictionary. For each (key, value) pair, djangosaml2 will try to store the
+attribute in the User model if there is a matching field in that model.
+Otherwise it will try to do the same with your profile custom model.
+
+Learn more about Django profile models at:
+
+https://docs.djangoproject.com/en/dev/topics/auth/#storing-additional-information-about-users
+
 
 IdP setup
 =========
