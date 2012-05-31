@@ -20,7 +20,7 @@ import urlparse
 
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, AnonymousUser
 from django.core.management import call_command
 from django.db.models import loading
 from django.template import Template, Context
@@ -420,9 +420,16 @@ class Saml2BackendTests(TestCase):
 
 
 def test_config_loader(request):
-    conf = SPConfig()
-    conf.load({'entityid': 'testentity'})
-    return conf
+    config = SPConfig()
+    config.load({'entityid': 'testentity'})
+    return config
+
+
+def test_config_loader_with_real_conf(request):
+    config = SPConfig()
+    config.load(conf.create_conf(sp_host='sp.example.com',
+                                 idp_hosts=['idp.example.com']))
+    return config
 
 
 class ConfTests(TestCase):
@@ -433,3 +440,16 @@ class ConfTests(TestCase):
         conf = get_config_loader(config_loader, request)
 
         self.assertEquals(conf.entityid, 'testentity')
+
+    def test_custom_conf_loader_from_view(self):
+        config_loader = 'djangosaml2.tests.test_config_loader_with_real_conf'
+        request = RequestFactory().get('/login/')
+        request.user = AnonymousUser()
+        request.session = {}
+        response = views.login(request, config_loader)
+        self.assertEquals(response.status_code, 302)
+        location = response['Location']
+
+        url = urlparse.urlparse(location)
+        self.assertEquals(url.hostname, 'idp.example.com')
+        self.assertEquals(url.path, '/simplesaml/saml2/idp/SSOService.php')
