@@ -25,8 +25,10 @@ from django.core.management import call_command
 from django.db.models import loading
 from django.template import Template, Context
 from django.test import TestCase
+from django.test.client import RequestFactory
 
 from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
+from saml2.config import SPConfig
 
 from djangosaml2 import views
 from djangosaml2.backends import Saml2Backend
@@ -415,3 +417,19 @@ class Saml2BackendTests(TestCase):
         backend.update_user(user, attributes, attribute_mapping)
 
         self.assertEquals(user.get_profile().age, '22')
+
+
+def test_config_loader(request):
+    conf = SPConfig()
+    conf.load({'entityid': 'testentity'})
+    return conf
+
+
+class ConfTests(TestCase):
+
+    def test_custom_conf_loader(self):
+        config_loader = 'djangosaml2.tests.test_config_loader'
+        request = RequestFactory().get('/bar/foo')
+        conf = get_config_loader(config_loader, request)
+
+        self.assertEquals(conf.entityid, 'testentity')
