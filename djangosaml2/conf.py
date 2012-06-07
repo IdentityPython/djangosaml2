@@ -16,12 +16,18 @@
 import copy
 
 from django.conf import settings
+from django.utils import importlib
 
 from saml2.config import SPConfig
 
 
 def config_settings_loader():
     """Utility function to load the pysaml2 configuration"""
-    conf = SPConfig()
-    conf.load(copy.deepcopy(settings.SAML_CONFIG))
-    return conf
+    if getattr(settings, 'DJANGOSAML2_CONF_LOADER', None):
+        module, func = settings.DJANGOSAML2_CONF_LOADER.rsplit('.', 1)
+        module = importlib.import_module(module)
+        return getattr(module, func)()
+    else:
+        conf = SPConfig()
+        conf.load(copy.deepcopy(settings.SAML_CONFIG))
+        return conf

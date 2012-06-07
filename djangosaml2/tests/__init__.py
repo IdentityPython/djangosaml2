@@ -23,10 +23,12 @@ from django.contrib.auth import SESSION_KEY
 from django.contrib.auth.models import User
 from django.test import TestCase
 
+from saml2.config import SPConfig
 from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
 
 from djangosaml2 import views
 from djangosaml2.cache import OutstandingQueriesCache
+import djangosaml2.conf
 from djangosaml2.tests import conf
 from djangosaml2.tests.auth_response import auth_response
 from djangosaml2.signals import post_authenticated
@@ -35,6 +37,12 @@ from djangosaml2.signals import post_authenticated
 class SAML2Tests(TestCase):
 
     urls = 'djangosaml2.urls'
+
+    def tearDown(self):
+        try:
+            del djangosaml2.conf.settings.DJANGOSAML2_CONF_LOADER
+        except AttributeError:
+            pass
 
     def assertSAMLRequestsEquals(self, xml1, xml2):
 
@@ -335,3 +343,14 @@ ID4zT0FcZASGuthM56rRJJSx
         self.do_login()
 
         post_authenticated.disconnect(dispatch_uid='test_signal')
+
+    def test_conf_loader_setting(self):
+        djangosaml2.conf.settings.DJANGOSAML2_CONF_LOADER = 'djangosaml2.tests.test_conf_loader'
+        ds2config = djangosaml2.conf.config_settings_loader()
+        self.assertEqual(ds2config.entityid, 'http://alt_loader.com/saml2/metadata/')
+
+
+def test_conf_loader():
+    sp_conf = SPConfig()
+    sp_conf.load(conf.create_conf(sp_host='alt_loader.com'))
+    return sp_conf
