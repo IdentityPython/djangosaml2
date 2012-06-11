@@ -133,7 +133,7 @@ class Saml2Backend(ModelBackend):
         if user_modified or force_save:
             user.save()
 
-        if profile_modified or force_save:
+        if profile is not None and (profile_modified or force_save):
             profile.save()
 
         return user
