@@ -21,6 +21,7 @@ import urlparse
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
 from django.contrib.auth.models import User
+from django.core.urlresolvers import reverse
 from django.test import TestCase
 
 from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
@@ -179,6 +180,24 @@ class SAML2Tests(TestCase):
                 })
         self.assertEquals(response.status_code, 302)
         self.assertEquals(new_user.id, self.client.session[SESSION_KEY])
+
+    def test_missing_param_to_assertion_consumer_service_request(self):
+        # Send request without SAML2Response parameter
+        response = self.client.post(reverse('saml2_acs'))
+        # Assert that view responded with "Bad Request" error
+        self.assertEqual(response.status_code, 400)
+
+    def test_bad_request_method_to_assertion_consumer_service(self):
+        # Send request with non-POST method.
+        response = self.client.get(reverse('saml2_acs'))
+        # Assert that view responded with method not allowed status
+        self.assertEqual(response.status_code, 405)
+
+    def test_bad_samlresponse_value_to_assertion_consumer_service(self):
+        # Send request without SAML2Response parameter
+        response = self.client.post(reverse('saml2_acs'), data={'SAMLResponse': 'foobar'})
+        # Assert that view responded with "Bad Request" error
+        self.assertEqual(response.status_code, 400)
 
     def do_login(self):
         """Auxiliary method used in several tests (mainly logout tests)"""
