@@ -3,6 +3,6 @@ syntax: glob
 *.egg-info
 build
 dist
+*.pyc
 *.swp
 *.swo
-*.pyc
