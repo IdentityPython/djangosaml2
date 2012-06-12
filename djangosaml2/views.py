@@ -24,7 +24,9 @@ from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import logout as django_logout
-from django.http import Http404, HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect, \
+        HttpResponseBadRequest
+from django.views.decorators.http import require_POST
 from django.shortcuts import render_to_response
 from django.template import RequestContext
 try:
@@ -127,6 +129,7 @@ DEFAULT_CREATE_UNKNOWN_USER = get_custom_setting('SAML_CREATE_UNKNOWN_USER',
                                                  True)
 
 
+@require_POST
 @csrf_exempt
 def assertion_consumer_service(request,
                                config_loader=DEFAULT_CONFIG_LOADER,
@@ -143,7 +146,8 @@ def assertion_consumer_service(request,
     logger.debug('Assertion Consumer Service started')
 
     conf = get_config_loader(config_loader, request)
-
+    if 'SAMLResponse' not in request.POST:
+        return HttpResponseBadRequest('Couldn\'t find "SAMLResponse" in POST data.')
     post = {'SAMLResponse': request.POST['SAMLResponse']}
     client = Saml2Client(conf, identity_cache=IdentityCache(request.session),
                          logger=logger)
@@ -155,7 +159,7 @@ def assertion_consumer_service(request,
     response = client.response(post, outstanding_queries)
     if response is None:
         logger.error('SAML response is None')
-        return HttpResponse("SAML response has errors. Please check the logs")
+        return HttpResponseBadRequest("SAML response has errors. Please check the logs")
 
     session_id = response.session_id()
     oq_cache.delete(session_id)
