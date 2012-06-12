@@ -146,8 +146,8 @@ class SAML2Tests(TestCase):
         self.assertSAMLRequestsEquals(expected_request, xml)
 
     def test_assertion_consumer_service(self):
-        # there are no users in the database
-        self.assertEquals(User.objects.count(), 0)
+        # Get initial number of users
+        initial_user_count = User.objects.count()
 
         settings.SAML_CONFIG = conf.create_conf(sp_host='sp.example.com',
                                                 idp_hosts=['idp.example.com'])
@@ -172,7 +172,7 @@ class SAML2Tests(TestCase):
         self.assertEquals(url.hostname, 'testserver')
         self.assertEquals(url.path, came_from)
 
-        self.assertEquals(User.objects.count(), 1)
+        self.assertEquals(User.objects.count(), initial_user_count + 1)
         user_id = self.client.session[SESSION_KEY]
         user = User.objects.get(id=user_id)
         self.assertEquals(user.username, 'student')
