@@ -46,12 +46,6 @@ class SAML2Tests(TestCase):
 
     urls = 'djangosaml2.urls'
 
-    def tearDown(self):
-        try:
-            del djangosaml2.conf.settings.DJANGOSAML2_CONF_LOADER
-        except AttributeError:
-            pass
-
     def assertSAMLRequestsEquals(self, xml1, xml2):
 
         def remove_variable_attributes(xml_string):
