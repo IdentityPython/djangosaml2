@@ -44,6 +44,15 @@ class SAML2Tests(TestCase):
 
     urls = 'djangosaml2.urls'
 
+    def setUp(self):
+        if hasattr(settings, 'SAML_ATTRIBUTE_MAPPING'):
+            self.actual_attribute_mapping = settings.SAML_ATTRIBUTE_MAPPING
+            del settings.SAML_ATTRIBUTE_MAPPING
+
+    def tearDown(self):
+        if hasattr(self, 'actual_attribute_mapping'):
+            settings.SAML_ATTRIBUTE_MAPPING = self.actual_attribute_mapping
+
     def assertSAMLRequestsEquals(self, xml1, xml2):
 
         def remove_variable_attributes(xml_string):
