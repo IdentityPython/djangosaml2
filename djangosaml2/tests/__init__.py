@@ -407,12 +407,16 @@ class Saml2BackendTests(TestCase):
         loading.cache.loaded = False
         call_command('syncdb', verbosity=0)
 
-        self.old_auth_profile_module = settings.AUTH_PROFILE_MODULE
+        if hasattr(settings, 'AUTH_PROFILE_MODULE'):
+            self.old_auth_profile_module = settings.AUTH_PROFILE_MODULE
         settings.AUTH_PROFILE_MODULE = 'tests.TestProfile'
 
     def tearDown(self):
         settings.INSTALLED_APPS = self.old_installed_apps
-        settings.AUTH_PROFILE_MODULE = self.old_auth_profile_module
+        if hasattr(self, 'old_auth_profile_module'):
+            settings.AUTH_PROFILE_MODULE = self.old_auth_profile_module
+        else:
+            del settings.AUTH_PROFILE_MODULE
 
     def test_update_user(self):
 
