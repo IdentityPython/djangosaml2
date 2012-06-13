@@ -18,3 +18,7 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     'djangosaml2',
 )
+
+AUTHENTICATION_BACKENDS = (
+    'djangosaml2.backends.Saml2Backend',
+)
