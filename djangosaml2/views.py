@@ -123,18 +123,12 @@ def login(request,
     return HttpResponseRedirect(location)
 
 
-DEFAULT_ATTRIBUTE_MAPPING = get_custom_setting('SAML_ATTRIBUTE_MAPPING',
-                                               {'uid': ('username', )})
-DEFAULT_CREATE_UNKNOWN_USER = get_custom_setting('SAML_CREATE_UNKNOWN_USER',
-                                                 True)
-
-
 @require_POST
 @csrf_exempt
 def assertion_consumer_service(request,
                                config_loader=DEFAULT_CONFIG_LOADER,
-                               attribute_mapping=DEFAULT_ATTRIBUTE_MAPPING,
-                               create_unknown_user=DEFAULT_CREATE_UNKNOWN_USER):
+                               attribute_mapping=None,
+                               create_unknown_user=None):
     """SAML Authorization Response endpoint
 
     The IdP will send its response to this view, which
@@ -143,6 +137,10 @@ def assertion_consumer_service(request,
     djangosaml2.backends.Saml2Backend that should be
     enabled in the settings.py
     """
+    attribute_mapping = attribute_mapping or get_custom_setting(
+            'SAML_ATTRIBUTE_MAPPING', {'uid': ('username', )})
+    create_unknown_user = create_unknown_user or get_custom_setting(
+            'SAML_CREATE_UNKNOWN_USER', True)
     logger.debug('Assertion Consumer Service started')
 
     conf = get_config_loader(config_loader, request)
