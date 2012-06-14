@@ -59,7 +59,8 @@ class Saml2Backend(ModelBackend):
         # instead we use get_or_create when creating unknown users since it has
         # built-in safeguards for multiple threads.
         if create_unknown_user:
-            logger.debug('Check if the user "%s" exists or create otherwise' % username)
+            logger.debug(
+                'Check if the user "%s" exists or create otherwise' % username)
             user, created = User.objects.get_or_create(username=username)
             if created:
                 logger.debug('New user created')
@@ -95,7 +96,8 @@ class Saml2Backend(ModelBackend):
         return self.update_user(user, attributes, attribute_mapping,
                                 force_save=True)
 
-    def update_user(self, user, attributes, attribute_mapping, force_save=False):
+    def update_user(self, user, attributes, attribute_mapping,
+                    force_save=False):
         """Update a user with a set of attributes and returns the updated user.
 
         By default it uses a mapping defined in the settings constant

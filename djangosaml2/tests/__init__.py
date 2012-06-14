@@ -440,6 +440,7 @@ class Saml2BackendTests(TestCase):
 
         # now we create a user profile and link it to the user
         profile = TestProfile.objects.create(user=user)
+        self.assertNotEquals(profile, None)
 
         attribute_mapping['saml_age'] = ('age', )
         attributes['saml_age'] = ('22', )

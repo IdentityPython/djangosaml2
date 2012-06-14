@@ -26,20 +26,28 @@ from djangosaml2.utils import get_custom_setting
 
 def get_config_loader(path, request=None):
     i = path.rfind('.')
-    module, attr = path[:i], path[i+1:]
+    module, attr = path[:i], path[i + 1:]
     try:
         mod = import_module(module)
     except ImportError, e:
-        raise ImproperlyConfigured('Error importing SAML config loader %s: "%s"' % (path, e))
+        raise ImproperlyConfigured(
+            'Error importing SAML config loader %s: "%s"' % (path, e))
     except ValueError, e:
-        raise ImproperlyConfigured('Error importing SAML config loader. Is SAML_CONFIG_LOADER a correctly string with a callable path?')
+        raise ImproperlyConfigured(
+            'Error importing SAML config loader. Is SAML_CONFIG_LOADER '
+            'a correctly string with a callable path?'
+            )
     try:
         config_loader = getattr(mod, attr)
     except AttributeError:
-        raise ImproperlyConfigured('Module "%s" does not define a "%s" config loader' % (module, attr))
+        raise ImproperlyConfigured(
+            'Module "%s" does not define a "%s" config loader' %
+            (module, attr)
+            )
 
     if not hasattr(config_loader, '__call__'):
-        raise ImproperlyConfigured("SAML config loader must be a callable object.")
+        raise ImproperlyConfigured(
+            "SAML config loader must be a callable object.")
 
     return config_loader
 

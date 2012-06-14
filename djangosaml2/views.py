@@ -134,7 +134,8 @@ def assertion_consumer_service(request,
 
     conf = get_config(config_loader_path, request)
     if 'SAMLResponse' not in request.POST:
-        return HttpResponseBadRequest('Couldn\'t find "SAMLResponse" in POST data.')
+        return HttpResponseBadRequest(
+            'Couldn\'t find "SAMLResponse" in POST data.')
     post = {'SAMLResponse': request.POST['SAMLResponse']}
     client = Saml2Client(conf, identity_cache=IdentityCache(request.session),
                          logger=logger)
@@ -146,7 +147,8 @@ def assertion_consumer_service(request,
     response = client.response(post, outstanding_queries)
     if response is None:
         logger.error('SAML response is None')
-        return HttpResponseBadRequest("SAML response has errors. Please check the logs")
+        return HttpResponseBadRequest(
+            "SAML response has errors. Please check the logs")
 
     session_id = response.session_id()
     oq_cache.delete(session_id)
@@ -165,7 +167,8 @@ def assertion_consumer_service(request,
                              create_unknown_user=create_unknown_user)
     if user is None:
         logger.error('The user is None')
-        return HttpResponse("There were problems trying to authenticate the user")
+        return HttpResponse(
+            "There were problems trying to authenticate the user")
 
     auth.login(request, user)
     _set_subject_id(request.session, session_info['name_id'])
