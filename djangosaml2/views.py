@@ -42,8 +42,9 @@ from saml2.metadata import entity_descriptor
 
 from djangosaml2.cache import IdentityCache, OutstandingQueriesCache
 from djangosaml2.cache import StateCache
-from djangosaml2.conf import get_config_loader
+from djangosaml2.conf import get_config
 from djangosaml2.signals import post_authenticated
+from djangosaml2.utils import get_custom_setting
 
 
 logger = logging.getLogger('djangosaml2')
@@ -57,20 +58,8 @@ def _get_subject_id(session):
     return session['_saml2_subject_id']
 
 
-def get_custom_setting(name, default=None):
-    if hasattr(settings, name):
-        return getattr(settings, name)
-    else:
-        return default
-
-
-DEFAULT_CONFIG_LOADER = get_custom_setting(
-    'SAML_CONFIG_LOADER',
-    'djangosaml2.conf.config_settings_loader',
-    )
-
 def login(request,
-          config_loader=DEFAULT_CONFIG_LOADER,
+          config_loader_path=None,
           wayf_template='djangosaml2/wayf.html',
           authorization_error_template='djangosaml2/auth_error.html'):
     """SAML Authorization Request initiator
@@ -90,7 +79,7 @@ def login(request,
                 }, context_instance=RequestContext(request))
 
     selected_idp = request.GET.get('idp', None)
-    conf = get_config_loader(config_loader, request)
+    conf = get_config(config_loader_path, request)
 
     # is a embedded wayf needed?
     idps = conf.idps()
@@ -126,7 +115,7 @@ def login(request,
 @require_POST
 @csrf_exempt
 def assertion_consumer_service(request,
-                               config_loader=DEFAULT_CONFIG_LOADER,
+                               config_loader_path=None,
                                attribute_mapping=None,
                                create_unknown_user=None):
     """SAML Authorization Response endpoint
@@ -143,7 +132,7 @@ def assertion_consumer_service(request,
             'SAML_CREATE_UNKNOWN_USER', True)
     logger.debug('Assertion Consumer Service started')
 
-    conf = get_config_loader(config_loader, request)
+    conf = get_config(config_loader_path, request)
     if 'SAMLResponse' not in request.POST:
         return HttpResponseBadRequest('Couldn\'t find "SAMLResponse" in POST data.')
     post = {'SAMLResponse': request.POST['SAMLResponse']}
@@ -192,11 +181,11 @@ def assertion_consumer_service(request,
 
 @login_required
 def echo_attributes(request,
-                    config_loader=DEFAULT_CONFIG_LOADER,
+                    config_loader_path=None,
                     template='djangosaml2/echo_attributes.html'):
     """Example view that echo the SAML attributes of an user"""
     state = StateCache(request.session)
-    conf = get_config_loader(config_loader, request)
+    conf = get_config(config_loader_path, request)
 
     client = Saml2Client(conf, state_cache=state,
                          identity_cache=IdentityCache(request.session),
@@ -209,7 +198,7 @@ def echo_attributes(request,
 
 
 @login_required
-def logout(request, config_loader=DEFAULT_CONFIG_LOADER):
+def logout(request, config_loader_path=None):
     """SAML Logout Request initiator
 
     This view initiates the SAML2 Logout request
@@ -217,7 +206,7 @@ def logout(request, config_loader=DEFAULT_CONFIG_LOADER):
     """
     logger.debug('Logout process started')
     state = StateCache(request.session)
-    conf = get_config_loader(config_loader, request)
+    conf = get_config(config_loader_path, request)
 
     client = Saml2Client(conf, state_cache=state,
                          identity_cache=IdentityCache(request.session),
@@ -230,8 +219,7 @@ def logout(request, config_loader=DEFAULT_CONFIG_LOADER):
     return HttpResponseRedirect(headers['Location'])
 
 
-def logout_service(request, config_loader=DEFAULT_CONFIG_LOADER,
-                   next_page=None):
+def logout_service(request, config_loader_path=None, next_page=None):
     """SAML Logout Response endpoint
 
     The IdP will send the logout response to this view,
@@ -242,7 +230,7 @@ def logout_service(request, config_loader=DEFAULT_CONFIG_LOADER,
     request started by another SP.
     """
     logger.debug('Logout service started')
-    conf = get_config_loader(config_loader, request)
+    conf = get_config(config_loader_path, request)
 
     state = StateCache(request.session)
     client = Saml2Client(conf, state_cache=state,
@@ -282,12 +270,11 @@ def logout_service(request, config_loader=DEFAULT_CONFIG_LOADER,
         raise Http404('No SAMLResponse or SAMLRequest parameter found')
 
 
-def metadata(request, config_loader=DEFAULT_CONFIG_LOADER,
-             valid_for=None):
+def metadata(request, config_loader_path=None, valid_for=None):
     """Returns an XML with the SAML 2.0 metadata for this
     SP as configured in the settings.py file.
     """
-    conf = get_config_loader(config_loader, request)
+    conf = get_config(config_loader_path, request)
     valid_for = valid_for or get_custom_setting('SAML_VALID_FOR', 24)
     metadata = entity_descriptor(conf, valid_for)
     return HttpResponse(content=str(metadata),

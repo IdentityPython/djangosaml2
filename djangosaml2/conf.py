@@ -21,6 +21,8 @@ from django.utils.importlib import import_module
 
 from saml2.config import SPConfig
 
+from djangosaml2.utils import get_custom_setting
+
 
 def get_config_loader(path, request=None):
     i = path.rfind('.')
@@ -39,7 +41,7 @@ def get_config_loader(path, request=None):
     if not hasattr(config_loader, '__call__'):
         raise ImproperlyConfigured("SAML config loader must be a callable object.")
 
-    return config_loader(request)
+    return config_loader
 
 
 def config_settings_loader(request=None):
@@ -50,3 +52,11 @@ def config_settings_loader(request=None):
     conf = SPConfig()
     conf.load(copy.deepcopy(settings.SAML_CONFIG))
     return conf
+
+
+def get_config(config_loader_path=None, request=None):
+    config_loader_path = config_loader_path or get_custom_setting(
+        'SAML_CONFIG_LOADER', 'djangosaml2.conf.config_settings_loader')
+
+    config_loader = get_config_loader(config_loader_path)
+    return config_loader(request)
