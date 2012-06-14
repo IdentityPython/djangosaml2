@@ -282,14 +282,13 @@ def logout_service(request, config_loader=DEFAULT_CONFIG_LOADER,
         raise Http404('No SAMLResponse or SAMLRequest parameter found')
 
 
-DEFAULT_VALID_FOR = get_custom_setting('SAML_VALID_FOR', 24)
-
 def metadata(request, config_loader=DEFAULT_CONFIG_LOADER,
-             valid_for=DEFAULT_VALID_FOR):
+             valid_for=None):
     """Returns an XML with the SAML 2.0 metadata for this
     SP as configured in the settings.py file.
     """
     conf = get_config_loader(config_loader, request)
+    valid_for = valid_for or get_custom_setting('SAML_VALID_FOR', 24)
     metadata = entity_descriptor(conf, valid_for)
     return HttpResponse(content=str(metadata),
                         content_type="text/xml; charset=utf8")
