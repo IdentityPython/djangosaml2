@@ -1,4 +1,4 @@
-# Copyright (C) 2011 Yaco Sistemas (http://www.yaco.es)
+# Copyright (C) 2011-2012 Yaco Sistemas (http://www.yaco.es)
 # Copyright (C) 2010 Lorenzo Gil Sanchez <lorenzo.gil.sanchez@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
