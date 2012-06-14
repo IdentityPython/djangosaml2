@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2012 Yaco Sistemas (http://www.yaco.es)
+# Copyright (C) 2012 Yaco Sistemas (http://www.yaco.es)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import django.dispatch
+from django.conf import settings
 
 
-post_authenticated = django.dispatch.Signal(providing_args=['session_info'])
+def get_custom_setting(name, default=None):
+    if hasattr(settings, name):
+        return getattr(settings, name)
+    else:
+        return default

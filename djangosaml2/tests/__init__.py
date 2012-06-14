@@ -1,4 +1,4 @@
-# Copyright (C) 2011 Yaco Sistemas (http://www.yaco.es)
+# Copyright (C) 2011-2012 Yaco Sistemas (http://www.yaco.es)
 # Copyright (C) 2010 Lorenzo Gil Sanchez <lorenzo.gil.sanchez@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +35,7 @@ from saml2.config import SPConfig
 from djangosaml2 import views
 from djangosaml2.backends import Saml2Backend
 from djangosaml2.cache import OutstandingQueriesCache
-from djangosaml2.conf import get_config_loader
+from djangosaml2.conf import get_config
 from djangosaml2.tests import conf
 from djangosaml2.tests.auth_response import auth_response
 from djangosaml2.tests.models import TestProfile
@@ -163,7 +163,7 @@ class SAML2Tests(TestCase):
         settings.SAML_CONFIG = conf.create_conf(sp_host='sp.example.com',
                                                 idp_hosts=['idp.example.com'])
 
-        config = get_config_loader(views.DEFAULT_CONFIG_LOADER)
+        config = get_config()
         # session_id should start with a letter since it is a NCName
         session_id = "a0123456789abcdef0123456789abcdef"
         came_from = '/another-view/'
@@ -222,7 +222,7 @@ class SAML2Tests(TestCase):
 
     def do_login(self):
         """Auxiliary method used in several tests (mainly logout tests)"""
-        config = get_config_loader(views.DEFAULT_CONFIG_LOADER)
+        config = get_config()
         session_id = "a0123456789abcdef0123456789abcdef"
         came_from = '/another-view/'
         saml_response = auth_response({'uid': 'student'}, session_id, config)
@@ -444,6 +444,7 @@ class Saml2BackendTests(TestCase):
 
         # now we create a user profile and link it to the user
         profile = TestProfile.objects.create(user=user)
+        self.assertNotEquals(profile, None)
 
         attribute_mapping['saml_age'] = ('age', )
         attributes['saml_age'] = ('22', )
@@ -468,18 +469,18 @@ def test_config_loader_with_real_conf(request):
 class ConfTests(TestCase):
 
     def test_custom_conf_loader(self):
-        config_loader = 'djangosaml2.tests.test_config_loader'
+        config_loader_path = 'djangosaml2.tests.test_config_loader'
         request = RequestFactory().get('/bar/foo')
-        conf = get_config_loader(config_loader, request)
+        conf = get_config(config_loader_path, request)
 
         self.assertEquals(conf.entityid, 'testentity')
 
     def test_custom_conf_loader_from_view(self):
-        config_loader = 'djangosaml2.tests.test_config_loader_with_real_conf'
+        config_loader_path = 'djangosaml2.tests.test_config_loader_with_real_conf'
         request = RequestFactory().get('/login/')
         request.user = AnonymousUser()
         request.session = {}
-        response = views.login(request, config_loader)
+        response = views.login(request, config_loader_path)
         self.assertEquals(response.status_code, 302)
         location = response['Location']
 
