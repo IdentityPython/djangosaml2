@@ -24,8 +24,8 @@ from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import logout as django_logout
-from django.http import Http404, HttpResponse, HttpResponseRedirect, \
-        HttpResponseBadRequest
+from django.http import Http404, HttpResponse
+from django.http import HttpResponseRedirect, HttpResponseBadRequest
 from django.views.decorators.http import require_POST
 from django.shortcuts import render_to_response
 from django.template import RequestContext
