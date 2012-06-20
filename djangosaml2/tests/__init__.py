@@ -50,10 +50,15 @@ class SAML2Tests(TestCase):
         if hasattr(settings, 'SAML_ATTRIBUTE_MAPPING'):
             self.actual_attribute_mapping = settings.SAML_ATTRIBUTE_MAPPING
             del settings.SAML_ATTRIBUTE_MAPPING
+        if hasattr(settings, 'SAML_CONFIG_LOADER'):
+            self.actual_conf_loader = settings.SAML_CONFIG_LOADER
+            del settings.SAML_CONFIG_LOADER
 
     def tearDown(self):
         if hasattr(self, 'actual_attribute_mapping'):
             settings.SAML_ATTRIBUTE_MAPPING = self.actual_attribute_mapping
+        if hasattr(self, 'actual_conf_loader'):
+            settings.SAML_CONFIG_LOADER = self.actual_conf_loader
 
     def assertSAMLRequestsEquals(self, xml1, xml2):
 
