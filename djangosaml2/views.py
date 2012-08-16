@@ -246,6 +246,8 @@ def logout_service(request, config_loader_path=None, next_page=None):
                                           binding=BINDING_HTTP_REDIRECT)
         state.sync()
         if response and response[1] == '200 Ok':
+            if next_page is None and hasattr(settings, 'LOGOUT_REDIRECT_URL'):
+                next_page = settings.LOGOUT_REDIRECT_URL
             logger.debug('Performing django_logout with a next_page of %s'
                          % next_page)
             return django_logout(request, next_page=next_page)
