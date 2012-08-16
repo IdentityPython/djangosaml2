@@ -38,6 +38,8 @@ class Saml2Backend(ModelBackend):
         if not attributes:
             logger.error('The attributes dictionary is empty')
 
+        logger.debug('attributes: %s' % attributes)
+        logger.debug('attribute_mapping: %s' % attribute_mapping)
         saml_user = None
         for saml_attr, django_fields in attribute_mapping.items():
             if 'username' in django_fields and saml_attr in attributes:
