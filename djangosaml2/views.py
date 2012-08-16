@@ -246,6 +246,8 @@ def logout_service(request, config_loader_path=None, next_page=None):
                                           binding=BINDING_HTTP_REDIRECT)
         state.sync()
         if response and response[1] == '200 Ok':
+            logger.debug('Performing django_logout with a next_page of %s'
+                         % next_page)
             return django_logout(request, next_page=next_page)
         else:
             logger.error('Unknown error during the logout')
