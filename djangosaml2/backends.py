@@ -23,11 +23,6 @@ logger = logging.getLogger('djangosaml2')
 
 
 class Saml2Backend(ModelBackend):
-    """This backend is added automatically by the assertion_consumer_service
-    view.
-
-    Don't add it to settings.AUTHENTICATION_BACKENDS.
-    """
 
     def authenticate(self, session_info=None, attribute_mapping=None,
                      create_unknown_user=True):
