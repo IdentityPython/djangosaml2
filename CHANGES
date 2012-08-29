@@ -1,6 +1,18 @@
 Changes
 =======
 
+0.6.0 (2012-08-29)
+------------------
+- Add tox support configured to run the tests with Python 2.6 and 2.7
+- Fix some dependencies and sdist generation. Lorenzo Gil
+- Allow defining a logout redirect url in the settings. Lorenzo Gil
+- Add some logging calls to improve debugging. Lorenzo Gil
+- Add support for custom conf loading function. Sam Bull.
+- Make the tests more robust and easier to run when djangosaml2 is
+  included in a Django project. Sam Bull.
+- Make sure the profile is not None before saving it. Bug reported by
+  Leif Johansson
+
 0.5.0 (2012-05-22)
 ------------------
 - Allow defining custom config loaders. They can be dynamic depending on

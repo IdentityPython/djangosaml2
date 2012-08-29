@@ -383,6 +383,14 @@ following url::
 Now if you go to the /test/ url you will see your SAML attributes and also
 a link to do a global logout.
 
+You can also run the unit tests with the following command::
+
+  python tests/run_tests.py
+
+If you have `tox`_ installed you can simply call tox inside the root directory
+and it will run the tests in multiple versions of Python.
+
+.. _`tox`: http://pypi.python.org/pypi/tox
 
 FAQ
 ===
