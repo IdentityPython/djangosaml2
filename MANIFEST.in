@@ -1,9 +1,5 @@
 include README
 include CHANGES
 include COPYING
-recursive-include djangosaml2/templates/djangosaml2/ *.html
-recursive-include djangosaml2/tests/ *.csr
-recursive-include djangosaml2/tests/ *.key
-recursive-include djangosaml2/tests/ *.pem
-recursive-include djangosaml2/tests/ *.xml
-recursive-include djangosaml2/tests/attribute-maps *
+global-include *.html *.csr *.key *.pem *.xml
+global-exclude *.pyc
