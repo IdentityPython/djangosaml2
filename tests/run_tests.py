@@ -15,16 +15,9 @@
 # limitations under the License.
 
 
-import os, os.path
-import sys
-import pprint
+import os
 
-path, scriptname = os.path.split(__file__)
-
-sys.path.append(os.path.abspath(path))
-sys.path.append(os.path.abspath(os.path.join(path, '..')))
-
-os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
+os.environ['DJANGO_SETTINGS_MODULE'] = 'settings'
 
 from django.core import management
 
