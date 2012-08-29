@@ -22,19 +22,15 @@ import urlparse
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
 from django.contrib.auth.models import User, AnonymousUser
-from django.core.management import call_command
 from django.core.urlresolvers import reverse
-from django.db.models import loading
 from django.template import Template, Context
 from django.test import TestCase
 from django.test.client import RequestFactory
 
 from saml2.config import SPConfig
 from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
-from saml2.config import SPConfig
 
 from djangosaml2 import views
-from djangosaml2.backends import Saml2Backend
 from djangosaml2.cache import OutstandingQueriesCache
 from djangosaml2.conf import get_config
 from djangosaml2.tests import conf
