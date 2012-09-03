@@ -161,6 +161,12 @@ LOGGING = {
     }
 }
 
+import django
+
+if django.VERSION < (1, 4):
+    del LOGGING['filters']['require_debug_false']
+    del LOGGING['handlers']['mail_admins']['filters']
+
 AUTHENTICATION_BACKENDS = (
     'djangosaml2.backends.Saml2Backend',
 )
