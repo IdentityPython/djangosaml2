@@ -48,6 +48,5 @@ setup(
     install_requires=[
         'pysaml2==0.4.1',
         'python-memcached==1.48',
-        'Django==1.4.1',
         ],
     )
