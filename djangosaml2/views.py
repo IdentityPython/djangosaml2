@@ -72,11 +72,29 @@ def login(request,
 
     came_from = request.GET.get('next', settings.LOGIN_REDIRECT_URL)
 
+    # if the user is already authenticated that maybe because of two reasons:
+    # A) He has this URL in two browser windows and in the other one he
+    #    has already initiated the authenticated session.
+    # B) He comes from a view that (incorrectly) send him here because
+    #    he does not have enough permissions. That view should have shown
+    #    an authorization error in the first place.
+    # We can only make one thing here and that is configurable with the
+    # SAML_IGNORE_AUTHENTICATED_USERS_ON_LOGIN setting. If that setting
+    # is True (default value) we will redirect him to the came_from view.
+    # Otherwise, we will show an (configurable) authorization error.
     if not request.user.is_anonymous():
-        logger.debug('User is already logged in')
-        return render_to_response(authorization_error_template, {
-                'came_from': came_from,
-                }, context_instance=RequestContext(request))
+        try:
+            redirect_authenticated_user = settings.SAML_IGNORE_AUTHENTICATED_USERS_ON_LOGIN
+        except AttributeError:
+            redirect_authenticated_user = True
+
+        if redirect_authenticated_user:
+            return HttpResponseRedirect(came_from)
+        else:
+            logger.debug('User is already logged in')
+            return render_to_response(authorization_error_template, {
+                    'came_from': came_from,
+                    }, context_instance=RequestContext(request))
 
     selected_idp = request.GET.get('idp', None)
     conf = get_config(config_loader_path, request)
