@@ -1,6 +1,12 @@
 Changes
 =======
 
+0.7.0 (2012-10-19)
+------------------
+- Add a setting to decide if the user should be redirected to the
+  next view or shown an authorization error when the user tries to
+  login twice.
+
 0.6.1 (2012-09-03)
 ------------------
 - Remove Django from our dependencies
