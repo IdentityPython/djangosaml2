@@ -15,6 +15,7 @@
 
 import logging
 
+from django.conf import settings
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User, SiteProfileNotAvailable
 from django.core.exceptions import ObjectDoesNotExist
@@ -38,11 +39,17 @@ class Saml2Backend(ModelBackend):
         if not attributes:
             logger.error('The attributes dictionary is empty')
 
+        try:
+            django_user_main_attribute = settings.SAML_MAIN_USER_ATTRIBUTE
+        except AttributeError:
+            django_user_main_attribute = 'username'
+
         logger.debug('attributes: %s' % attributes)
         logger.debug('attribute_mapping: %s' % attribute_mapping)
         saml_user = None
         for saml_attr, django_fields in attribute_mapping.items():
-            if 'username' in django_fields and saml_attr in attributes:
+            if (django_user_main_attribute in django_fields
+                and saml_attr in attributes):
                 saml_user = attributes[saml_attr][0]
 
         if saml_user is None:
@@ -50,15 +57,17 @@ class Saml2Backend(ModelBackend):
             return None
 
         user = None
-        username = self.clean_username(saml_user)
+        main_attribute = self.clean_user_main_attribute(saml_user)
+
+        user_query_args = {django_user_main_attribute: main_attribute}
 
         # Note that this could be accomplished in one try-except clause, but
         # instead we use get_or_create when creating unknown users since it has
         # built-in safeguards for multiple threads.
         if create_unknown_user:
-            logger.debug(
-                'Check if the user "%s" exists or create otherwise' % username)
-            user, created = User.objects.get_or_create(username=username)
+            logger.debug('Check if the user "%s" exists or create otherwise'
+                         % main_attribute)
+            user, created = User.objects.get_or_create(**user_query_args)
             if created:
                 logger.debug('New user created')
                 user = self.configure_user(user, attributes, attribute_mapping)
@@ -66,23 +75,24 @@ class Saml2Backend(ModelBackend):
                 logger.debug('User updated')
                 user = self.update_user(user, attributes, attribute_mapping)
         else:
-            logger.debug('Retrieving existing user "%s"' % username)
+            logger.debug('Retrieving existing user "%s"' % main_attribute)
             try:
-                user = User.objects.get(username=username)
+                user = User.objects.get(**user_query_args)
                 user = self.update_user(user, attributes, attribute_mapping)
             except User.DoesNotExist:
-                logger.error('The user "%s" does not exist' % username)
+                logger.error('The user "%s" does not exist' % main_attribute)
                 pass
 
         return user
 
-    def clean_username(self, username):
-        """Performs any cleaning on the "username" prior to using it to get or
-        create the user object.  Returns the cleaned username.
+    def clean_user_main_attribute(self, main_attribute):
+        """Performs any cleaning on the user main attribute (which
+        usually is "username") prior to using it to get or
+        create the user object.  Returns the cleaned attribute.
 
-        By default, returns the username unchanged.
+        By default, returns the attribute unchanged.
         """
-        return username
+        return main_attribute
 
     def configure_user(self, user, attributes, attribute_mapping):
         """Configures a user after creation and returns the updated user.
