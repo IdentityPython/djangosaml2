@@ -18,7 +18,7 @@ import logging
 from django.conf import settings
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User, SiteProfileNotAvailable
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 
 logger = logging.getLogger('djangosaml2')
 
@@ -39,10 +39,8 @@ class Saml2Backend(ModelBackend):
         if not attributes:
             logger.error('The attributes dictionary is empty')
 
-        try:
-            django_user_main_attribute = settings.SAML_MAIN_USER_ATTRIBUTE
-        except AttributeError:
-            django_user_main_attribute = 'username'
+        django_user_main_attribute = getattr(
+            settings, 'SAML_DJANGO_USER_MAIN_ATTRIBUTE', 'username')
 
         logger.debug('attributes: %s' % attributes)
         logger.debug('attribute_mapping: %s' % attribute_mapping)
@@ -67,7 +65,13 @@ class Saml2Backend(ModelBackend):
         if create_unknown_user:
             logger.debug('Check if the user "%s" exists or create otherwise'
                          % main_attribute)
-            user, created = User.objects.get_or_create(**user_query_args)
+            try:
+                user, created = User.objects.get_or_create(**user_query_args)
+            except MultipleObjectsReturned:
+                logger.error("There are more than one user with %s = %s" %
+                             (django_user_main_attribute, main_attribute))
+                return None
+
             if created:
                 logger.debug('New user created')
                 user = self.configure_user(user, attributes, attribute_mapping)
@@ -81,7 +85,11 @@ class Saml2Backend(ModelBackend):
                 user = self.update_user(user, attributes, attribute_mapping)
             except User.DoesNotExist:
                 logger.error('The user "%s" does not exist' % main_attribute)
-                pass
+                return None
+            except MultipleObjectsReturned:
+                logger.error("There are more than one user with %s = %s" %
+                             (django_user_main_attribute, main_attribute))
+                return None
 
         return user
 
