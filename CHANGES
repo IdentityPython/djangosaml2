@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.8.0 (2012-10-25)
+------------------
+- Allow to use different attributes besides 'username' to look for
+  existing users.
+
 0.7.0 (2012-10-19)
 ------------------
 - Add a setting to decide if the user should be redirected to the
