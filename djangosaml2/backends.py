@@ -136,12 +136,14 @@ class Saml2Backend(ModelBackend):
             try:
                 for attr in django_attrs:
                     if hasattr(user, attr):
-                        setattr(user, attr, attributes[saml_attr][0])
-                        user_modified = True
+                        modified = self._set_attribute(
+                            user, attr, attributes[saml_attr][0])
+                        user_modified = user_modified or modified
 
                     elif profile is not None and hasattr(profile, attr):
-                        setattr(profile, attr, attributes[saml_attr][0])
-                        profile_modified = True
+                        modified = self._set_attribute(
+                            profile, attr, attributes[saml_attr][0])
+                        profile_modified = profile_modified or modified
 
             except KeyError:
                 # the saml attribute is missing
@@ -154,3 +156,23 @@ class Saml2Backend(ModelBackend):
             profile.save()
 
         return user
+
+    def _set_attribute(self, obj, attr, value):
+        """Set an attribute of an object to a specific value.
+
+        Return True if the attribute was changed and False otherwise.
+        """
+        field = obj._meta.get_field_by_name(attr)
+        if len(value) > field[0].max_length:
+            cleaned_value = value[:field[0].max_length]
+            logger.warn('The attribute "%s" was trimmed from "%s" to "%s"' %
+                        (attr, value, cleaned_value))
+        else:
+            cleaned_value = value
+
+        old_value = getattr(obj, attr)
+        if cleaned_value != old_value:
+            setattr(obj, attr, cleaned_value)
+            return True
+
+        return False
