@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.8.1 (2012-10-29)
+------------------
+- Trim the SAML attributes before setting them to the Django objects
+  if they are too long. This fixes a crash with MySQL.
+
 0.8.0 (2012-10-25)
 ------------------
 - Allow to use different attributes besides 'username' to look for
