@@ -20,6 +20,8 @@ from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User, SiteProfileNotAvailable
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 
+from djangosaml2.signals import pre_user_save
+
 logger = logging.getLogger('djangosaml2')
 
 
@@ -149,10 +151,19 @@ class Saml2Backend(ModelBackend):
                 # the saml attribute is missing
                 pass
 
-        if user_modified or force_save:
+        logger.debug('Sending the pre_save signal')
+        signal_modified = any(
+            [response for receiver, response
+             in pre_user_save.send_robust(sender=user,
+                                          attributes=attributes,
+                                          user_modified=user_modified)]
+            )
+
+        if user_modified or signal_modified or force_save:
             user.save()
 
-        if profile is not None and (profile_modified or force_save):
+        if (profile is not None
+            and (profile_modified or signal_modified or force_save)):
             profile.save()
 
         return user
