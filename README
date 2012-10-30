@@ -295,9 +295,9 @@ a Django user and create a session for it. By default djangosaml2 will
 do a query on the User model with the 'username' attribute but you can
 change it to any other attribute of the User model. For example,
 you can do this look up using the 'email' attribute. In order to do so
-you should set the following setting:
+you should set the following setting::
 
-SAML_DJANGO_USER_MAIN_ATTRIBUTE = 'email'
+  SAML_DJANGO_USER_MAIN_ATTRIBUTE = 'email'
 
 Please, use an unique attribute when setting this option. Otherwise
 the authentication process will fail because djangosaml2 does not know
@@ -337,6 +337,28 @@ Otherwise it will try to do the same with your profile custom model.
 Learn more about Django profile models at:
 
 https://docs.djangoproject.com/en/dev/topics/auth/#storing-additional-information-about-users
+
+
+Sometimes you need to use special logic to update the user object
+depending on the SAML2 attributes and the mapping described above
+is simply not enough. For these cases djangosaml2 provides a Django
+signal that you can listen to. In order to do so you can add the
+following code to your app::
+
+  from djangosaml2.signals import pre_user_save
+
+  def custom_update_user(sender=user, attributes=attributes, user_modified=user_modified)
+     ...
+     return True  # I modified the user object
+
+
+Your handler will receive the user object, the list of SAML attributes
+and a flag telling you if the user is already modified and need
+to be saved after your handler is executed. If your handler
+modifies the user object it should return True. Otherwise it should
+return False. This way djangosaml2 will know if it should save
+the user object so you don't need to do it and no more calls to
+the save method are issued.
 
 
 IdP setup
