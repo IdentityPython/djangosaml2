@@ -56,7 +56,11 @@ class Saml2Backend(ModelBackend):
             logger.error('Could not find saml_user value')
             return None
 
+        if not self.is_authorized(attributes, attribute_mapping):
+            return None
+
         user = None
+
         main_attribute = self.clean_user_main_attribute(saml_user)
 
         user_query_args = {django_user_main_attribute: main_attribute}
@@ -94,6 +98,12 @@ class Saml2Backend(ModelBackend):
                 return None
 
         return user
+
+    def is_authorized(self, attributes, attribute_mapping):
+        """Hook to allow custom authorization policies based on
+        SAML attributes.
+        """
+        return True
 
     def clean_user_main_attribute(self, main_attribute):
         """Performs any cleaning on the user main attribute (which
