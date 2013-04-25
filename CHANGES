@@ -1,6 +1,10 @@
 Changes
 =======
 
+0.9.2 (2013-04-19)
+------------------
+- Upgrade to pysaml2-0.4.3.
+
 0.9.1 (2013-01-29)
 ------------------
 - Add a method to the authentication backend so it is possible
