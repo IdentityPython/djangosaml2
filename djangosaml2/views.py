@@ -195,6 +195,9 @@ def assertion_consumer_service(request,
 
     # redirect the user to the view where he came from
     relay_state = request.POST.get('RelayState', '/')
+    if not relay_state:
+        logger.warning('The RelayState parameter is empty')
+        relay_state = '/'
     logger.debug('Redirecting to the RelayState: ' + relay_state)
     return HttpResponseRedirect(relay_state)
 
