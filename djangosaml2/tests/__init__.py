@@ -371,6 +371,22 @@ class SAML2Tests(TestCase):
                                       {'2.6': expected_response26,
                                        '2.7': expected_response27})
 
+    def test_incomplete_logout(self):
+        settings.SAML_CONFIG = conf.create_conf(sp_host='sp.example.com',
+                                                idp_hosts=['idp.example.com'])
+
+        # don't do a login
+
+        # now simulate a global logout process initiated by another SP
+        instant = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+        saml_request = '<samlp:LogoutRequest xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="_9961abbaae6d06d251226cb25e38bf8f468036e57e" Version="2.0" IssueInstant="%s" Destination="http://sp.example.com/saml2/ls/"><saml:Issuer>https://idp.example.com/simplesaml/saml2/idp/metadata.php</saml:Issuer><saml:NameID SPNameQualifier="http://sp.example.com/saml2/metadata/" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">%s</saml:NameID><samlp:SessionIndex>_1837687b7bc9faad85839dbeb319627889f3021757</samlp:SessionIndex></samlp:LogoutRequest>' % (
+            instant, 'invalid-subject-id')
+
+        response = self.client.get('/ls/', {
+                'SAMLRequest': deflate_and_base64_encode(saml_request),
+                })
+        self.assertContains(response, 'Logout error', status_code=200)
+
     def test_metadata(self):
         settings.SAML_CONFIG = conf.create_conf(sp_host='sp.example.com',
                                                 idp_hosts=['idp.example.com'])

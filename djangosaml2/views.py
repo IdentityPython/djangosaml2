@@ -253,7 +253,7 @@ def logout(request, config_loader_path=None):
 
 
 def logout_service(request, config_loader_path=None, next_page=None,
-                   logout_error_template='logout_error.html'):
+                   logout_error_template='djangosaml2/logout_error.html'):
     """SAML Logout Response endpoint
 
     The IdP will send the logout response to this view,
