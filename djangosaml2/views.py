@@ -55,7 +55,10 @@ def _set_subject_id(session, subject_id):
 
 
 def _get_subject_id(session):
-    return session['_saml2_subject_id']
+    try:
+        return session['_saml2_subject_id']
+    except KeyError:
+        return None
 
 
 def login(request,
@@ -238,6 +241,10 @@ def logout(request, config_loader_path=None):
                          identity_cache=IdentityCache(request.session),
                          logger=logger)
     subject_id = _get_subject_id(request.session)
+    if subject_id is None:
+        logger.warning(
+            'The session does not contains the subject id for user %s'
+            % request.user)
     session_id, code, head, body = client.global_logout(subject_id)
     headers = dict(head)
     state.sync()
@@ -245,7 +252,8 @@ def logout(request, config_loader_path=None):
     return HttpResponseRedirect(headers['Location'])
 
 
-def logout_service(request, config_loader_path=None, next_page=None):
+def logout_service(request, config_loader_path=None, next_page=None,
+                   logout_error_template='logout_error.html'):
     """SAML Logout Response endpoint
 
     The IdP will send the logout response to this view,
@@ -281,20 +289,28 @@ def logout_service(request, config_loader_path=None, next_page=None):
     elif 'SAMLRequest' in request.GET:  # logout started by the IdP
         logger.debug('Receiving a logout request from the IdP')
         subject_id = _get_subject_id(request.session)
-        response, success = client.logout_request(request.GET, subject_id)
-        state.sync()
-        if success:
+        if subject_id is None:
+            logger.warning(
+                'The session does not contain the subject id for user %s. Performing local logout'
+                % request.user)
             auth.logout(request)
-            assert response[0][0] == 'Location'
-            url = response[0][1]
-            return HttpResponseRedirect(url)
-        elif response is not None:
-            assert response[0][0] == 'Location'
-            url = response[0][1]
-            return HttpResponseRedirect(url)
+            return render_to_response(logout_error_template, {},
+                                      context_instance=RequestContext(request))
         else:
-            logger.error('Unknown error during the logout')
-            return HttpResponse('Error during logout')
+            response, success = client.logout_request(request.GET, subject_id)
+            state.sync()
+            if success:
+                auth.logout(request)
+                assert response[0][0] == 'Location'
+                url = response[0][1]
+                return HttpResponseRedirect(url)
+            elif response is not None:
+                assert response[0][0] == 'Location'
+                url = response[0][1]
+                return HttpResponseRedirect(url)
+            else:
+                logger.error('Unknown error during the logout')
+                return HttpResponse('Error during logout')
     else:
         logger.error('No SAMLResponse or SAMLRequest parameter found')
         raise Http404('No SAMLResponse or SAMLRequest parameter found')
