@@ -1,6 +1,13 @@
 Changes
 =======
 
+0.10.0 (2013-05-05)
+-------------------
+- Check that RelayState is not empty before redirecting into a loop. Thanks
+  to Sam Bull for reporting this issue.
+- In the global logout process, when the session is lost, report an error
+  message to the user and perform a local logout.
+
 0.9.2 (2013-04-19)
 ------------------
 - Upgrade to pysaml2-0.4.3.
