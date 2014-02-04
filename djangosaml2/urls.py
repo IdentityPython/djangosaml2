@@ -13,7 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from django.conf.urls.defaults import patterns, handler500, url
+try:
+    from django.conf.urls import patterns, handler500, url
+# Fallback for Django versions < 1.4
+except ImportError:
+    from django.conf.urls.defaults import patterns, handler500, url
 
 urlpatterns = patterns(
     'djangosaml2.views',
