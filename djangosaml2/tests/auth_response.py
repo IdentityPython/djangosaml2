@@ -13,61 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
-from saml2 import saml
-from saml2.config import IdPConfig
-from saml2.s_utils import success_status_factory
-from saml2.server import Identifier, Server
-from saml2.sigver import response_factory
-
-BASEDIR = os.path.dirname(os.path.abspath(__file__))
+import datetime
 
 
-class FakeDb(dict):
-
-    def sync(self):
-        pass
-
-
-def auth_response(identity, in_response_to, sp_conf):
+def auth_response(session_id, uid):
     """Generates a fresh signed authentication response"""
-    sp_entity_id = sp_conf.entityid
-    idp_entity_id = sp_conf.idps().keys()[0]
-    acs = sp_conf.endpoint('assertion_consumer_service')[0]
-    issuer = saml.Issuer(text=idp_entity_id, format=saml.NAMEID_FORMAT_ENTITY)
-    response = response_factory(issuer=issuer,
-                                in_response_to=in_response_to,
-                                destination=acs,
-                                status=success_status_factory())
-    idp_conf = IdPConfig()
-    name_form = "urn:oasis:names:tc:SAML:2.0:attrname-format:uri"
-    idp_conf.load({
-            'entityid': idp_entity_id,
-            'xmlsec_binary': sp_conf.xmlsec_binary,
-            'attribute_map_dir': os.path.join(BASEDIR, 'attribute-maps'),
-            'service': {
-                'idp': {
-                    'endpoints': tuple(),
-                    'policy':  {
-                        'default': {
-                            "lifetime": {"minutes": 15},
-                            "attribute_restrictions": None,
-                            "name_form": name_form,
-                            }
-                        }
-                    },
-                },
-            'key_file': os.path.join(BASEDIR, 'idpcert.key'),
-            'cert_file': os.path.join(BASEDIR, 'idpcert.pem'),
-            'metadata': {
-                'local': [os.path.join(BASEDIR, 'sp_metadata.xml')],
-                },
-            })
-    server = Server("", idp_conf)
-    server.ident = Identifier(FakeDb())
+    timestamp = datetime.datetime.now() - datetime.timedelta(seconds=10)
+    tomorrow = datetime.datetime.now() + datetime.timedelta(days=1)
+    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
 
-    userid = 'irrelevant'
-    response = server.authn_response(identity, in_response_to, acs,
-                                     sp_entity_id, None, userid)
-    return '\n'.join(response)
+    saml_response_tpl = """<?xml version='1.0' encoding='UTF-8'?>
+<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Destination="http://sp.example.com/saml2/acs/" ID="id-88b9f586a2a3a639f9327485cc37c40a" InResponseTo="%(session_id)s" IssueInstant="%(timestamp)s" Version="2.0"><saml:Issuer Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">https://idp.example.com/simplesaml/saml2/idp/metadata.php</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" /></samlp:Status><saml:Assertion ID="id-093952102ceb73436e49cb91c58b0578" IssueInstant="%(timestamp)s" Version="2.0"><saml:Issuer Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">https://idp.example.com/simplesaml/saml2/idp/metadata.php</saml:Issuer><saml:Subject><saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient" NameQualifier="" SPNameQualifier="http://sp.example.com/saml2/metadata/">1f87035b4c1325b296a53d92097e6b3fa36d7e30ee82e3fcb0680d60243c1f03</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData InResponseTo="%(session_id)s" NotOnOrAfter="%(tomorrow)s" Recipient="http://sp.example.com/saml2/acs/" /></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="%(yesterday)s" NotOnOrAfter="%(tomorrow)s"><saml:AudienceRestriction><saml:Audience>http://sp.example.com/saml2/metadata/</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="%(timestamp)s" SessionIndex="%(session_id)s"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Password</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement><saml:AttributeStatement><saml:Attribute FriendlyName="uid" Name="urn:oid:0.9.2342.19200300.100.1.1" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:uri"><saml:AttributeValue xsi:nil="true" xsi:type="xs:string">%(uid)s</saml:AttributeValue></saml:Attribute></saml:AttributeStatement></saml:Assertion></samlp:Response>"""
+    return saml_response_tpl % {
+        'uid': uid,
+        'session_id': session_id,
+        'timestamp': timestamp.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'tomorrow': tomorrow.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'yesterday': yesterday.strftime('%Y-%m-%dT%H:%M:%SZ'),
+    }
