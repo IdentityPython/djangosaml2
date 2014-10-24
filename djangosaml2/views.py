@@ -73,6 +73,9 @@ def login(request,
     logger.debug('Login process started')
 
     came_from = request.GET.get('next', settings.LOGIN_REDIRECT_URL)
+    if not came_from:
+        logger.warning('The next parameter exists but is empty')
+        came_from = settings.LOGIN_REDIRECT_URL
 
     # if the user is already authenticated that maybe because of two reasons:
     # A) He has this URL in two browser windows and in the other one he
@@ -194,8 +197,8 @@ def assertion_consumer_service(request,
     # redirect the user to the view where he came from
     relay_state = request.POST.get('RelayState', '/')
     if not relay_state:
-        logger.warning('The RelayState parameter is empty')
-        relay_state = '/'
+        logger.warning('The RelayState parameter exists but is empty')
+        relay_state = settings.LOGIN_REDIRECT_URL
     logger.debug('Redirecting to the RelayState: ' + relay_state)
     return HttpResponseRedirect(relay_state)
 

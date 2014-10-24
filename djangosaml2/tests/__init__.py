@@ -228,14 +228,20 @@ class SAML2Tests(TestCase):
         new_user = User.objects.create(username='teacher', password='not-used')
 
         session_id = "a1111111111111111111111111111111"
-        came_from = '/'
-        self.add_outstanding_query(session_id, came_from)
+        came_from = ''  # bad, let's see if we can deal with this
         saml_response = auth_response(session_id, 'teacher')
+        self.add_outstanding_query(session_id, '/')
         response = self.client.post('/acs/', {
                 'SAMLResponse': base64.b64encode(saml_response),
                 'RelayState': came_from,
                 })
         self.assertEquals(response.status_code, 302)
+        location = response['Location']
+
+        url = urlparse.urlparse(location)
+        self.assertEquals(url.hostname, 'testserver')
+        # as the RelayState is empty we have redirect to LOGIN_REDIRECT_URL
+        self.assertEquals(url.path, '/accounts/profile/')
         self.assertEquals(new_user.id, self.client.session[SESSION_KEY])
 
     def test_missing_param_to_assertion_consumer_service_request(self):
