@@ -20,3 +20,28 @@ def get_custom_setting(name, default=None):
         return getattr(settings, name)
     else:
         return default
+
+
+def available_idps(config, langpref=None):
+    if langpref is None:
+        langpref = "en"
+
+    idps = set()
+
+    for metadata_name, metadata in config.metadata.metadata.items():
+        result = metadata.any('idpsso_descriptor', 'single_sign_on_service')
+        if result:
+            idps = idps.union(set(result.keys()))
+
+    return dict([(idp, config.metadata.name(idp, langpref)) for idp in idps])
+
+
+def get_location(http_info):
+    """Extract the redirect URL from a pysaml2 http_info object"""
+    assert 'headers' in http_info
+    headers = http_info['headers']
+
+    assert len(headers) == 1
+    header_name, header_value = headers[0]
+    assert header_name == 'Location'
+    return header_value
