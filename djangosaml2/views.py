@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2012 Yaco Sistemas (http://www.yaco.es)
+# Copyright (C) 2010-2013 Yaco Sistemas (http://www.yaco.es)
 # Copyright (C) 2009 Lorenzo Gil Sanchez <lorenzo.gil.sanchez@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +25,9 @@ from django.contrib import auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import logout as django_logout
 from django.http import Http404, HttpResponse
-from django.http import HttpResponseRedirect, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import HttpResponseRedirect  # 30x
+from django.http import  HttpResponseBadRequest, HttpResponseForbidden  # 40x
+from django.http import HttpResponseServerError  # 50x
 from django.views.decorators.http import require_POST
 from django.shortcuts import render_to_response
 from django.template import RequestContext
@@ -36,7 +38,7 @@ except ImportError:
     def csrf_exempt(view_func):
         return view_func
 
-from saml2 import BINDING_HTTP_REDIRECT
+from saml2 import BINDING_HTTP_REDIRECT, BINDING_HTTP_POST
 from saml2.client import Saml2Client
 from saml2.metadata import entity_descriptor
 
@@ -44,7 +46,7 @@ from djangosaml2.cache import IdentityCache, OutstandingQueriesCache
 from djangosaml2.cache import StateCache
 from djangosaml2.conf import get_config
 from djangosaml2.signals import post_authenticated
-from djangosaml2.utils import get_custom_setting
+from djangosaml2.utils import get_custom_setting, available_idps, get_location
 
 
 logger = logging.getLogger('djangosaml2')
@@ -100,7 +102,7 @@ def login(request,
     conf = get_config(config_loader_path, request)
 
     # is a embedded wayf needed?
-    idps = conf.idps()
+    idps = available_idps(conf)
     if selected_idp is None and len(idps) > 1:
         logger.debug('A discovery process is needed')
         return render_to_response(wayf_template, {
@@ -108,9 +110,9 @@ def login(request,
                 'came_from': came_from,
                 }, context_instance=RequestContext(request))
 
-    client = Saml2Client(conf, logger=logger)
+    client = Saml2Client(conf)
     try:
-        (session_id, result) = client.authenticate(
+        (session_id, result) = client.prepare_for_authenticate(
             entityid=selected_idp, relay_state=came_from,
             binding=BINDING_HTTP_REDIRECT,
             )
@@ -118,16 +120,12 @@ def login(request,
         logger.error('Unable to know which IdP to use')
         return HttpResponse(unicode(e))
 
-    assert len(result) == 2
-    assert result[0] == 'Location'
-    location = result[1]
-
     logger.debug('Saving the session_id in the OutstandingQueries cache')
     oq_cache = OutstandingQueriesCache(request.session)
     oq_cache.set(session_id, came_from)
 
     logger.debug('Redirecting the user to the IdP')
-    return HttpResponseRedirect(location)
+    return HttpResponseRedirect(get_location(result))
 
 
 @require_POST
@@ -154,15 +152,15 @@ def assertion_consumer_service(request,
     if 'SAMLResponse' not in request.POST:
         return HttpResponseBadRequest(
             'Couldn\'t find "SAMLResponse" in POST data.')
-    post = {'SAMLResponse': request.POST['SAMLResponse']}
-    client = Saml2Client(conf, identity_cache=IdentityCache(request.session),
-                         logger=logger)
+    xmlstr = request.POST['SAMLResponse']
+    client = Saml2Client(conf, identity_cache=IdentityCache(request.session))
 
     oq_cache = OutstandingQueriesCache(request.session)
     outstanding_queries = oq_cache.outstanding_queries()
 
     # process the authentication response
-    response = client.response(post, outstanding_queries)
+    response = client.parse_authn_request_response(xmlstr, BINDING_HTTP_POST,
+                                                   outstanding_queries)
     if response is None:
         logger.error('SAML response is None')
         return HttpResponseBadRequest(
@@ -211,8 +209,7 @@ def echo_attributes(request,
     conf = get_config(config_loader_path, request)
 
     client = Saml2Client(conf, state_cache=state,
-                         identity_cache=IdentityCache(request.session),
-                         logger=logger)
+                         identity_cache=IdentityCache(request.session))
     subject_id = _get_subject_id(request.session)
     identity = client.users.get_identity(subject_id,
                                          check_not_on_or_after=False)
@@ -232,14 +229,26 @@ def logout(request, config_loader_path=None):
     conf = get_config(config_loader_path, request)
 
     client = Saml2Client(conf, state_cache=state,
-                         identity_cache=IdentityCache(request.session),
-                         logger=logger)
+                         identity_cache=IdentityCache(request.session))
     subject_id = _get_subject_id(request.session)
-    session_id, code, head, body = client.global_logout(subject_id)
-    headers = dict(head)
-    state.sync()
-    logger.debug('Redirecting to the IdP to continue the logout process')
-    return HttpResponseRedirect(headers['Location'])
+
+    result = client.global_logout(subject_id)
+
+    if not result:
+        logger.error("Looks like the user %s is not logged in any IdP/AA" % subject_id)
+        return HttpResponseBadRequest("You are not logged in any IdP/AA")
+
+    if len(result) > 1:
+        logger.error('Sorry, I do not know how to logout from several sources. I will logout just from the first one')
+
+    for entityid, logout_info in result.items():
+        binding, http_info = logout_info
+        if binding == BINDING_HTTP_REDIRECT:
+            logger.debug('Redirecting to the IdP to continue the logout process')
+            return HttpResponseRedirect(get_location(http_info))
+
+    logger.error('Could not logout because there only the HTTP_REDIRECT is supported')
+    return HttpResponseServerError('Logout Binding not supported')
 
 
 def logout_service(request, config_loader_path=None, next_page=None):
@@ -257,15 +266,14 @@ def logout_service(request, config_loader_path=None, next_page=None):
 
     state = StateCache(request.session)
     client = Saml2Client(conf, state_cache=state,
-                         identity_cache=IdentityCache(request.session),
-                         logger=logger)
+                         identity_cache=IdentityCache(request.session))
 
     if 'SAMLResponse' in request.GET:  # we started the logout
         logger.debug('Receiving a logout response from the IdP')
-        response = client.logout_response(request.GET['SAMLResponse'],
-                                          binding=BINDING_HTTP_REDIRECT)
+        response = client.parse_logout_request_response(request.GET['SAMLResponse'],
+                                                        BINDING_HTTP_REDIRECT)
         state.sync()
-        if response and response[1] == '200 Ok':
+        if response and response.status_ok():
             if next_page is None and hasattr(settings, 'LOGOUT_REDIRECT_URL'):
                 next_page = settings.LOGOUT_REDIRECT_URL
             logger.debug('Performing django_logout with a next_page of %s'
@@ -278,20 +286,13 @@ def logout_service(request, config_loader_path=None, next_page=None):
     elif 'SAMLRequest' in request.GET:  # logout started by the IdP
         logger.debug('Receiving a logout request from the IdP')
         subject_id = _get_subject_id(request.session)
-        response, success = client.logout_request(request.GET, subject_id)
+        http_info = client.handle_logout_request(
+            request.GET['SAMLRequest'],
+            subject_id,
+            BINDING_HTTP_REDIRECT)
         state.sync()
-        if success:
-            auth.logout(request)
-            assert response[0][0] == 'Location'
-            url = response[0][1]
-            return HttpResponseRedirect(url)
-        elif response is not None:
-            assert response[0][0] == 'Location'
-            url = response[0][1]
-            return HttpResponseRedirect(url)
-        else:
-            logger.error('Unknown error during the logout')
-            return HttpResponse('Error during logout')
+        auth.logout(request)
+        return HttpResponseRedirect(get_location(http_info))
     else:
         logger.error('No SAMLResponse or SAMLRequest parameter found')
         raise Http404('No SAMLResponse or SAMLRequest parameter found')
@@ -302,8 +303,7 @@ def metadata(request, config_loader_path=None, valid_for=None):
     SP as configured in the settings.py file.
     """
     conf = get_config(config_loader_path, request)
-    valid_for = valid_for or get_custom_setting('SAML_VALID_FOR', 24)
-    metadata = entity_descriptor(conf, valid_for)
+    metadata = entity_descriptor(conf)
     return HttpResponse(content=str(metadata),
                         content_type="text/xml; charset=utf8")
 

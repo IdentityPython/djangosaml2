@@ -18,7 +18,8 @@ import os.path
 import saml2
 
 
-def create_conf(sp_host='sp.example.com', idp_hosts=['idp.example.com']):
+def create_conf(sp_host='sp.example.com', idp_hosts=['idp.example.com'],
+                metadata_file='remote_metadata.xml'):
 
     BASEDIR = os.path.dirname(os.path.abspath(__file__))
     config = {
@@ -46,7 +47,7 @@ def create_conf(sp_host='sp.example.com', idp_hosts=['idp.example.com']):
             },
 
         'metadata': {
-            'local': [os.path.join(BASEDIR, 'remote_metadata.xml')],
+            'local': [os.path.join(BASEDIR, metadata_file)],
             },
 
         'debug': 1,
@@ -74,6 +75,7 @@ def create_conf(sp_host='sp.example.com', idp_hosts=['idp.example.com']):
             'url': [('http://www.example.es', 'es'),
                     ('http://www.example.com', 'en')],
             },
+        'valid_for': 24,
         }
 
     for idp in idp_hosts:
