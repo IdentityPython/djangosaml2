@@ -21,9 +21,19 @@ import saml2
 def create_conf(sp_host='sp.example.com', idp_hosts=['idp.example.com'],
                 metadata_file='remote_metadata.xml'):
 
+    try:
+        from saml2.sigver import get_xmlsec_binary
+    except ImportError:
+        get_xmlsec_binary = None
+
+    if get_xmlsec_binary:
+        xmlsec_path = get_xmlsec_binary(["/opt/local/bin"])
+    else:
+        xmlsec_path = '/usr/bin/xmlsec1'
+
     BASEDIR = os.path.dirname(os.path.abspath(__file__))
     config = {
-        'xmlsec_binary': '/usr/bin/xmlsec1',
+        'xmlsec_binary': xmlsec_path,
         'entityid': 'http://%s/saml2/metadata/' % sp_host,
         'attribute_map_dir': os.path.join(BASEDIR, 'attribute-maps'),
 
