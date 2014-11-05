@@ -41,6 +41,7 @@ except ImportError:
 from saml2 import BINDING_HTTP_REDIRECT, BINDING_HTTP_POST
 from saml2.client import Saml2Client
 from saml2.metadata import entity_descriptor
+from saml2.ident import code, decode
 
 from djangosaml2.cache import IdentityCache, OutstandingQueriesCache
 from djangosaml2.cache import StateCache
@@ -53,12 +54,12 @@ logger = logging.getLogger('djangosaml2')
 
 
 def _set_subject_id(session, subject_id):
-    session['_saml2_subject_id'] = subject_id
+    session['_saml2_subject_id'] = code(subject_id)
 
 
 def _get_subject_id(session):
     try:
-        return session['_saml2_subject_id']
+        return decode(session['_saml2_subject_id'])
     except KeyError:
         return None
 
