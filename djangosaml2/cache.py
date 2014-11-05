@@ -75,12 +75,6 @@ class IdentityCache(Cache):
         self._db = DjangoSessionCacheAdapter(django_session, '_identities')
         self._sync = True
 
-    def delete(self, subject_id):
-        super(IdentityCache, self).delete(subject_id)
-        # saml2.Cache doesn't do a sync after a delete
-        # I'll send a patch to fix this in that side, after which this
-        # could be removed
-        self._db.sync()
 
 
 class StateCache(DjangoSessionCacheAdapter):
