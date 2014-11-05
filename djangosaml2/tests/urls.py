@@ -28,6 +28,7 @@ urlpatterns = patterns(
     url(r'^acs/$', 'assertion_consumer_service', name='saml2_acs'),
     url(r'^logout/$', 'logout', name='saml2_logout'),
     url(r'^ls/$', 'logout_service', name='saml2_ls'),
+    url(r'^ls/post/$', 'logout_service_post', name='saml2_ls_post'),
     url(r'^metadata/$', 'metadata', name='saml2_metadata'),
 
     # this is needed for the tests

@@ -275,16 +275,16 @@ def logout(request, config_loader_path=None):
     return HttpResponseServerError('Logout Binding not supported')
 
 
-def logout_service_redirect(request, *args, **kwargs):
-    return logout_service(request, request.GET, BINDING_HTTP_REDIRECT, *args, **kwargs)
+def logout_service(request, *args, **kwargs):
+    return do_logout_service(request, request.GET, BINDING_HTTP_REDIRECT, *args, **kwargs)
 
 
 @csrf_exempt
 def logout_service_post(request, *args, **kwargs):
-    return logout_service(request, request.POST, BINDING_HTTP_POST, *args, **kwargs)
+    return do_logout_service(request, request.POST, BINDING_HTTP_POST, *args, **kwargs)
 
 
-def logout_service(request, data, binding, config_loader_path=None, next_page=None,
+def do_logout_service(request, data, binding, config_loader_path=None, next_page=None,
                    logout_error_template='djangosaml2/logout_error.html'):
     """SAML Logout Response endpoint
 
