@@ -275,7 +275,16 @@ def logout(request, config_loader_path=None):
     return HttpResponseServerError('Logout Binding not supported')
 
 
-def logout_service(request, config_loader_path=None, next_page=None,
+def logout_service_redirect(request, *args, **kwargs):
+    return logout_service(request, request.GET, BINDING_HTTP_REDIRECT, *args, **kwargs)
+
+
+@csrf_exempt
+def logout_service_post(request, *args, **kwargs):
+    return logout_service(request, request.POST, BINDING_HTTP_POST, *args, **kwargs)
+
+
+def logout_service(request, data, binding, config_loader_path=None, next_page=None,
                    logout_error_template='djangosaml2/logout_error.html'):
     """SAML Logout Response endpoint
 
@@ -293,14 +302,13 @@ def logout_service(request, config_loader_path=None, next_page=None,
     client = Saml2Client(conf, state_cache=state,
                          identity_cache=IdentityCache(request.session))
 
-    if 'SAMLResponse' in request.GET:  # we started the logout
+    if 'SAMLResponse' in data:  # we started the logout
         logger.debug('Receiving a logout response from the IdP')
-        response = client.parse_logout_request_response(request.GET['SAMLResponse'],
-                                                        BINDING_HTTP_REDIRECT)
+        response = client.parse_logout_request_response(data['SAMLResponse'], binding)
         state.sync()
         return finish_logout(request, response, next_page=next_page)
 
-    elif 'SAMLRequest' in request.GET:  # logout started by the IdP
+    elif 'SAMLRequest' in data:  # logout started by the IdP
         logger.debug('Receiving a logout request from the IdP')
         subject_id = _get_subject_id(request.session)
         if subject_id is None:
@@ -312,9 +320,9 @@ def logout_service(request, config_loader_path=None, next_page=None,
                                       context_instance=RequestContext(request))
         else:
             http_info = client.handle_logout_request(
-                request.GET['SAMLRequest'],
+                data['SAMLRequest'],
                 subject_id,
-                BINDING_HTTP_REDIRECT)
+                binding)
             state.sync()
             auth.logout(request)
             return HttpResponseRedirect(get_location(http_info))
