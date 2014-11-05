@@ -255,10 +255,21 @@ def logout(request, config_loader_path=None):
         logger.error('Sorry, I do not know how to logout from several sources. I will logout just from the first one')
 
     for entityid, logout_info in result.items():
-        binding, http_info = logout_info
-        if binding == BINDING_HTTP_REDIRECT:
-            logger.debug('Redirecting to the IdP to continue the logout process')
-            return HttpResponseRedirect(get_location(http_info))
+        if isinstance(logout_info, tuple):
+            binding, http_info = logout_info
+            if binding == BINDING_HTTP_POST:
+                logger.debug('Returning form to the IdP to continue the logout process')
+                body = ''.join(http_info['data'])
+                return HttpResponse(body)
+            elif binding == BINDING_HTTP_REDIRECT:
+                logger.debug('Redirecting to the IdP to continue the logout process')
+                return HttpResponseRedirect(get_location(http_info))
+            else:
+                logger.error('Unknown binding: %s', binding)
+                return HttpResponseServerError('Failed to log out')
+        else:
+            # We must have had a soap logout
+            return finish_logout(request, logout_info)
 
     logger.error('Could not logout because there only the HTTP_REDIRECT is supported')
     return HttpResponseServerError('Logout Binding not supported')
@@ -287,15 +298,7 @@ def logout_service(request, config_loader_path=None, next_page=None,
         response = client.parse_logout_request_response(request.GET['SAMLResponse'],
                                                         BINDING_HTTP_REDIRECT)
         state.sync()
-        if response and response.status_ok():
-            if next_page is None and hasattr(settings, 'LOGOUT_REDIRECT_URL'):
-                next_page = settings.LOGOUT_REDIRECT_URL
-            logger.debug('Performing django_logout with a next_page of %s'
-                         % next_page)
-            return django_logout(request, next_page=next_page)
-        else:
-            logger.error('Unknown error during the logout')
-            return HttpResponse('Error during logout')
+        return finish_logout(request, response, next_page=next_page)
 
     elif 'SAMLRequest' in request.GET:  # logout started by the IdP
         logger.debug('Receiving a logout request from the IdP')
@@ -318,6 +321,18 @@ def logout_service(request, config_loader_path=None, next_page=None,
     else:
         logger.error('No SAMLResponse or SAMLRequest parameter found')
         raise Http404('No SAMLResponse or SAMLRequest parameter found')
+
+
+def finish_logout(request, response, next_page=None):
+    if response and response.status_ok():
+        if next_page is None and hasattr(settings, 'LOGOUT_REDIRECT_URL'):
+            next_page = settings.LOGOUT_REDIRECT_URL
+        logger.debug('Performing django_logout with a next_page of %s'
+                     % next_page)
+        return django_logout(request, next_page=next_page)
+    else:
+        logger.error('Unknown error during the logout')
+        return HttpResponse('Error during logout')
 
 
 def metadata(request, config_loader_path=None, valid_for=None):
