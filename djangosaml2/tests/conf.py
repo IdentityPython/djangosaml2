@@ -40,6 +40,7 @@ def create_conf(sp_host='sp.example.com', idp_hosts=['idp.example.com'],
         'service': {
             'sp': {
                 'name': 'Test SP',
+                'name_id_format': saml2.saml.NAMEID_FORMAT_PERSISTENT,
                 'endpoints': {
                     'assertion_consumer_service': [
                         ('http://%s/saml2/acs/' % sp_host,

@@ -157,6 +157,7 @@ We will see a typical configuration for protecting a Django project::
         # we are just a lonely SP
         'sp' : {
             'name': 'Federated Django sample SP',
+            'name_id_format': saml2.saml.NAMEID_FORMAT_PERSISTENT,
             'endpoints': {
                 # url and binding to the assetion consumer service view
                 # do not change the binding or service name
