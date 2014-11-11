@@ -285,7 +285,7 @@ User attributes
 ---------------
 
 In the SAML 2.0 authentication process the Identity Provider (IdP) will
-send a security assertion to the Service Provider (SP) upon a succesfull
+send a security assertion to the Service Provider (SP) upon a succesful
 authentication. This assertion contains attributes about the user that
 was authenticated. It depends on the IdP configuration what exact
 attributes are sent to each SP it can talk to.
