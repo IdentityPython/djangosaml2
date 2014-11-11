@@ -289,7 +289,7 @@ User attributes
 ---------------
 
 In the SAML 2.0 authentication process the Identity Provider (IdP) will
-send a security assertion to the Service Provider (SP) upon a succesfull
+send a security assertion to the Service Provider (SP) upon a succesful
 authentication. This assertion contains attributes about the user that
 was authenticated. It depends on the IdP configuration what exact
 attributes are sent to each SP it can talk to.
@@ -306,6 +306,10 @@ you should set the following setting::
 Please, use an unique attribute when setting this option. Otherwise
 the authentication process will fail because djangosaml2 does not know
 which Django user it should pick.
+
+Another option is to use the SAML2 name id as the username by setting::
+
+  SAML_USE_NAME_ID_AS_USERNAME = True
 
 You can configure djangosaml2 to create such user if it is not already in
 the Django database or maybe you don't want to allow users that are not
