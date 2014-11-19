@@ -1,5 +1,9 @@
 Changes
 =======
+0.12.0 (2014-11-18)
+-------------------
+- Pysaml2 2.2.0 support. Thanks to Erick Tryzelaar
+
 0.11.0 (2014-06-15)
 -------------------
 - Django 1.5 custom user model support. Thanks to Jos van Velzen
