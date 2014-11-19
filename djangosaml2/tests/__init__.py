@@ -508,7 +508,14 @@ ID4zT0FcZASGuthM56rRJJSx
             '{% endfor %}'
             )
 
-        expected = u'https://idp2.example.com/simplesaml/saml2/idp/metadata.php - idp2.example.com IdP; https://idp3.example.com/simplesaml/saml2/idp/metadata.php - idp3.example.com IdP; https://idp1.example.com/simplesaml/saml2/idp/metadata.php - idp1.example.com IdP; '
+        # the idplist is unordered, so convert the result into a set.
+        rendered = set(rendered.split('; '))
+        expected = set([
+            u'https://idp1.example.com/simplesaml/saml2/idp/metadata.php - idp1.example.com IdP',
+            u'https://idp2.example.com/simplesaml/saml2/idp/metadata.php - idp2.example.com IdP',
+            u'https://idp3.example.com/simplesaml/saml2/idp/metadata.php - idp3.example.com IdP',
+            u'',
+        ])
 
         self.assertEqual(rendered, expected)
 
