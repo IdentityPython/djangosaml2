@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import django
+
 try:
     from django.contrib.auth import get_user_model
 except ImportError:
@@ -26,7 +27,8 @@ from django.test import TestCase
 
 from djangosaml2.backends import Saml2Backend
 
-from testprofiles.models import TestProfile
+if django.VERSION < (1,7):
+    from testprofiles.models import TestProfile
 
 
 class Saml2BackendTests(TestCase):
@@ -54,8 +56,9 @@ class Saml2BackendTests(TestCase):
         self.assertEquals(user.last_name, 'Doe')
 
         # now we create a user profile and link it to the user
-        profile = TestProfile.objects.create(user=user)
-        self.assertNotEquals(profile, None)
+        if django.VERSION < (1, 7):
+            profile = TestProfile.objects.create(user=user)
+            self.assertNotEquals(profile, None)
 
         attribute_mapping['saml_age'] = ('age', )
         attributes['saml_age'] = ('22', )

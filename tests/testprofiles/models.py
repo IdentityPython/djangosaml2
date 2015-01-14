@@ -15,22 +15,15 @@
 
 import django
 from django.db import models
+from django.contrib.auth.models import User
 from django.conf import settings
 
-
-class TestProfile(models.Model):
-    if django.VERSION >= (1,5):
-        user = models.OneToOneField(settings.AUTH_USER_MODEL)
-    else:
+if django.VERSION < (1, 7):
+    class TestProfile(models.Model):
         user = models.OneToOneField('auth.User')
+        age = models.CharField(max_length=100, blank=True)
 
-    age = models.CharField(max_length=100, blank=True)
-
-
-try:
-    from django.contrib.auth.models import AbstractUser
-except ImportError:
-    pass
 else:
+    from django.contrib.auth.models import AbstractUser
     class TestUser(AbstractUser):
         age = models.CharField(max_length=100, blank=True)
