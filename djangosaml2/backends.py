@@ -18,10 +18,16 @@ import logging
 from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.backends import ModelBackend
-from django.contrib.auth.models import SiteProfileNotAvailable
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 
 from djangosaml2.signals import pre_user_save
+
+try:
+    from django.contrib.auth.models import SiteProfileNotAvailable
+except ImportError:
+    class SiteProfileNotAvailable(Exception):
+        pass
+
 
 logger = logging.getLogger('djangosaml2')
 

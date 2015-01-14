@@ -14,7 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from django.contrib.auth.models import User
+import django
+try:
+    from django.contrib.auth import get_user_model
+except ImportError:
+    from django.contrib.auth.models import User
+else:
+    User = get_user_model()
+
 from django.test import TestCase
 
 from djangosaml2.backends import Saml2Backend
@@ -54,4 +61,7 @@ class Saml2BackendTests(TestCase):
         attributes['saml_age'] = ('22', )
         backend.update_user(user, attributes, attribute_mapping)
 
-        self.assertEquals(user.get_profile().age, '22')
+        if django.VERSION < (1, 7):
+            self.assertEquals(user.get_profile().age, '22')
+        else:
+            self.assertEquals(user.age, '22')
