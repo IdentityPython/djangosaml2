@@ -13,11 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import django
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
 
+if django.VERSION < (1, 7):
+    class TestProfile(models.Model):
+        user = models.OneToOneField('auth.User')
+        age = models.CharField(max_length=100, blank=True)
 
-class TestProfile(models.Model):
-    user = models.OneToOneField(User)
-
-    age = models.CharField(max_length=100, blank=True)
+else:
+    from django.contrib.auth.models import AbstractUser
+    class TestUser(AbstractUser):
+        age = models.CharField(max_length=100, blank=True)

@@ -20,6 +20,10 @@ import os
 os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
 
 from django.core import management
+import django
+
+if hasattr(django, 'setup'):
+    django.setup()
 
 management.call_command('test', 'djangosaml2', 'testprofiles')
 

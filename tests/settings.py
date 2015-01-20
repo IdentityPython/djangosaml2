@@ -1,4 +1,5 @@
 # Django settings for tests2 project.
+import django
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -123,6 +124,9 @@ INSTALLED_APPS = (
 )
 
 AUTH_PROFILE_MODULE = 'testprofiles.TestProfile'
+
+if django.VERSION >= (1, 7):
+    AUTH_USER_MODEL = 'testprofiles.TestUser'
 
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
