@@ -43,18 +43,18 @@ def get_model(model_path):
         try:
             app_label, model_name = model_path.split('.')
         except ValueError:
-            raise ImproperlyConfigured("SAML2_USER_MODEL must be of the form "
+            raise ImproperlyConfigured("SAML_USER_MODEL must be of the form "
                 "'app_label.model_name'")
         user_model = django_get_model(app_label, model_name)
         if user_model is None:
-            raise ImproperlyConfigured("SAML2_USER_MODEL refers to model '%s' "
+            raise ImproperlyConfigured("SAML_USER_MODEL refers to model '%s' "
                 "that has not been installed" % model_path)
         return user_model
 
 
 try:
     # djangosaml2 custom user model
-    User = get_model(settings.SAML2_USER_MODEL)
+    User = get_model(settings.SAML_USER_MODEL)
 except AttributeError:
     try:
         # Django 1.5 Custom user model
