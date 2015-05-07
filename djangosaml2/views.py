@@ -30,7 +30,7 @@ from django.http import  HttpResponseBadRequest, HttpResponseForbidden  # 40x
 from django.http import HttpResponseServerError  # 50x
 from django.views.decorators.http import require_POST
 from django.shortcuts import render_to_response
-from django.template import RequestContext
+from django.template import RequestContext, TemplateDoesNotExist
 try:
     from django.views.decorators.csrf import csrf_exempt
 except ImportError:
@@ -47,7 +47,8 @@ from djangosaml2.cache import IdentityCache, OutstandingQueriesCache
 from djangosaml2.cache import StateCache
 from djangosaml2.conf import get_config
 from djangosaml2.signals import post_authenticated
-from djangosaml2.utils import get_custom_setting, available_idps, get_location
+from djangosaml2.utils import get_custom_setting, available_idps, get_location, \
+    get_hidden_form_inputs
 
 
 logger = logging.getLogger('djangosaml2')
@@ -67,12 +68,22 @@ def _get_subject_id(session):
 def login(request,
           config_loader_path=None,
           wayf_template='djangosaml2/wayf.html',
-          authorization_error_template='djangosaml2/auth_error.html'):
+          authorization_error_template='djangosaml2/auth_error.html',
+          post_binding_form_template='djangosaml2/post_binding_form.html'):
     """SAML Authorization Request initiator
 
     This view initiates the SAML2 Authorization handshake
     using the pysaml2 library to create the AuthnRequest.
     It uses the SAML 2.0 Http Redirect protocol binding.
+
+    * post_binding_form_template - path to a template containing HTML form with
+    hidden input elements, used to send the SAML message data when HTTP POST
+    binding is being used. You can customize this template to include custom
+    branding and/or text explaining the automatic redirection process. Please
+    see the example template in
+    templates/djangosaml2/example_post_binding_from.html
+    If set to None or nonexistent template, default form from the saml2 library
+    will be rendered.
     """
     logger.debug('Login process started')
 
@@ -117,11 +128,30 @@ def login(request,
                 'came_from': came_from,
                 }, context_instance=RequestContext(request))
 
+    # Choose binding (REDIRECT vs. POST).
+    # When authn_requests_signed is turned on, HTTP Redirect binding cannot be
+    # used the same way as without signatures; proper usage in this case involves
+    # stripping out the signature from SAML XML message and creating a new
+    # signature, following precise steps defined in the SAML2.0 standard.
+    #
+    # It is not feasible to implement this since we wouldn't be able to use an
+    # external (xmlsec1) library to handle the signatures - more (higher level)
+    # context is needed in order to create such signature (like the value of
+    # RelayState parameter).
+    #
+    # Therefore it is much easier to use the HTTP POST binding in this case, as
+    # it can relay the whole signed SAML message as is, without the need to
+    # manipulate the signature or the XML message itself.
+    # 
+    # Read more in the official SAML2 specs (3.4.4.1):
+    # http://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
+    binding = BINDING_HTTP_POST if conf._sp_authn_requests_signed else BINDING_HTTP_REDIRECT
+
     client = Saml2Client(conf)
     try:
         (session_id, result) = client.prepare_for_authenticate(
             entityid=selected_idp, relay_state=came_from,
-            binding=BINDING_HTTP_REDIRECT,
+            binding=binding,
             )
     except TypeError, e:
         logger.error('Unable to know which IdP to use')
@@ -131,8 +161,22 @@ def login(request,
     oq_cache = OutstandingQueriesCache(request.session)
     oq_cache.set(session_id, came_from)
 
-    logger.debug('Redirecting the user to the IdP')
-    return HttpResponseRedirect(get_location(result))
+    logger.debug('Redirecting user to the IdP via %s binding.', binding.split(':')[-1])
+    if binding == BINDING_HTTP_REDIRECT:
+        return HttpResponseRedirect(get_location(result))
+    elif binding == BINDING_HTTP_POST:
+        if not post_binding_form_template:
+            return HttpResponse(result['data'])
+        try:
+            params = get_hidden_form_inputs(result['data'][3])
+            return render_to_response(post_binding_form_template, {
+                'target_url': result['url'],
+                'params': params,
+            })
+        except TemplateDoesNotExist:
+            return HttpResponse(result['data'])
+    else:
+        raise NotImplementedError('Unsupported binding: %s', binding)
 
 
 @require_POST

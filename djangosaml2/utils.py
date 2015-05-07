@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from xml.etree import ElementTree
 from django.conf import settings
 
 
@@ -45,3 +46,16 @@ def get_location(http_info):
     header_name, header_value = headers[0]
     assert header_name == 'Location'
     return header_value
+
+
+def get_hidden_form_inputs(html):
+    """ Extracts name/value pairs from hidden input tags in an html form."""
+    pairs = dict()
+    tree = ElementTree.fromstring(html)
+    for node in tree.iter():
+        if node.tag == 'input':
+            element = dict(node.items())
+            if element['type'] == 'hidden':
+                pairs[element['name']] = element['value']
+    return pairs
+
