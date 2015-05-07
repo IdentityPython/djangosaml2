@@ -81,7 +81,7 @@ def login(request,
     binding is being used. You can customize this template to include custom
     branding and/or text explaining the automatic redirection process. Please
     see the example template in
-    templates/djangosaml2/example_post_binding_from.html
+    templates/djangosaml2/example_post_binding_form.html
     If set to None or nonexistent template, default form from the saml2 library
     will be rendered.
     """
