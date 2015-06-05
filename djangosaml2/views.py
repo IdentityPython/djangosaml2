@@ -170,9 +170,9 @@ def login(request,
         try:
             params = get_hidden_form_inputs(result['data'][3])
             return render_to_response(post_binding_form_template, {
-                'target_url': result['url'],
-                'params': params,
-            })
+                    'target_url': result['url'],
+                    'params': params,
+                    }, context_instance=RequestContext(request))
         except TemplateDoesNotExist:
             return HttpResponse(result['data'])
     else:
