@@ -52,15 +52,16 @@ def get_model(model_path):
         return user_model
 
 
-try:
-    # djangosaml2 custom user model
-    User = get_model(settings.SAML_USER_MODEL)
-except AttributeError:
+def get_saml_user_model():
     try:
-        # Django 1.5 Custom user model
-        User = auth.get_user_model()
+        # djangosaml2 custom user model
+        return get_model(settings.SAML_USER_MODEL)
     except AttributeError:
-        User = auth.models.User
+        try:
+            # Django 1.5 Custom user model
+            return auth.get_user_model()
+        except AttributeError:
+            return auth.models.User
 
 
 class Saml2Backend(ModelBackend):
@@ -116,6 +117,7 @@ class Saml2Backend(ModelBackend):
         # Note that this could be accomplished in one try-except clause, but
         # instead we use get_or_create when creating unknown users since it has
         # built-in safeguards for multiple threads.
+        User = get_saml_user_model()
         if create_unknown_user:
             logger.debug('Check if the user "%s" exists or create otherwise'
                          % main_attribute)
