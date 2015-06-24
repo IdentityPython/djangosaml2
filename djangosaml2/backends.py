@@ -86,16 +86,16 @@ class Saml2Backend(ModelBackend):
         django_user_main_attribute = getattr(
             settings, 'SAML_DJANGO_USER_MAIN_ATTRIBUTE', 'username')
 
-        logger.debug('attributes: %s' % attributes)
+        logger.debug('attributes: %s', attributes)
         saml_user = None
         if use_name_id_as_username:
             if 'name_id' in session_info:
-                logger.debug('name_id: %s' % session_info['name_id'])
+                logger.debug('name_id: %s', session_info['name_id'])
                 saml_user = session_info['name_id'].text
             else:
                 logger.error('The nameid is not available. Cannot find user without a nameid.')
         else:
-            logger.debug('attribute_mapping: %s' % attribute_mapping)
+            logger.debug('attribute_mapping: %s', attribute_mapping)
             for saml_attr, django_fields in attribute_mapping.items():
                 if (django_user_main_attribute in django_fields
                     and saml_attr in attributes):
@@ -119,13 +119,13 @@ class Saml2Backend(ModelBackend):
         # built-in safeguards for multiple threads.
         User = get_saml_user_model()
         if create_unknown_user:
-            logger.debug('Check if the user "%s" exists or create otherwise'
-                         % main_attribute)
+            logger.debug('Check if the user "%s" exists or create otherwise',
+                         main_attribute)
             try:
                 user, created = User.objects.get_or_create(**user_query_args)
             except MultipleObjectsReturned:
-                logger.error("There are more than one user with %s = %s" %
-                             (django_user_main_attribute, main_attribute))
+                logger.error("There are more than one user with %s = %s",
+                             django_user_main_attribute, main_attribute)
                 return None
 
             if created:
@@ -135,16 +135,16 @@ class Saml2Backend(ModelBackend):
                 logger.debug('User updated')
                 user = self.update_user(user, attributes, attribute_mapping)
         else:
-            logger.debug('Retrieving existing user "%s"' % main_attribute)
+            logger.debug('Retrieving existing user "%s"', main_attribute)
             try:
                 user = User.objects.get(**user_query_args)
                 user = self.update_user(user, attributes, attribute_mapping)
             except User.DoesNotExist:
-                logger.error('The user "%s" does not exist' % main_attribute)
+                logger.error('The user "%s" does not exist', main_attribute)
                 return None
             except MultipleObjectsReturned:
-                logger.error("There are more than one user with %s = %s" %
-                             (django_user_main_attribute, main_attribute))
+                logger.error("There are more than one user with %s = %s",
+                             django_user_main_attribute, main_attribute)
                 return None
 
         return user
@@ -239,8 +239,8 @@ class Saml2Backend(ModelBackend):
         field = obj._meta.get_field_by_name(attr)
         if len(value) > field[0].max_length:
             cleaned_value = value[:field[0].max_length]
-            logger.warn('The attribute "%s" was trimmed from "%s" to "%s"' %
-                        (attr, value, cleaned_value))
+            logger.warn('The attribute "%s" was trimmed from "%s" to "%s"',
+                        attr, value, cleaned_value)
         else:
             cleaned_value = value
 

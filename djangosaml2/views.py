@@ -142,7 +142,7 @@ def login(request,
     # Therefore it is much easier to use the HTTP POST binding in this case, as
     # it can relay the whole signed SAML message as is, without the need to
     # manipulate the signature or the XML message itself.
-    # 
+    #
     # Read more in the official SAML2 specs (3.4.4.1):
     # http://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
     binding = BINDING_HTTP_POST if conf._sp_authn_requests_signed else BINDING_HTTP_REDIRECT
@@ -247,7 +247,7 @@ def assertion_consumer_service(request,
     if not relay_state:
         logger.warning('The RelayState parameter exists but is empty')
         relay_state = settings.LOGIN_REDIRECT_URL
-    logger.debug('Redirecting to the RelayState: ' + relay_state)
+    logger.debug('Redirecting to the RelayState: %s', relay_state)
     return HttpResponseRedirect(relay_state)
 
 
@@ -284,15 +284,15 @@ def logout(request, config_loader_path=None):
     subject_id = _get_subject_id(request.session)
     if subject_id is None:
         logger.warning(
-            'The session does not contains the subject id for user %s'
-            % request.user)
+            'The session does not contains the subject id for user %s',
+            request.user)
 
     result = client.global_logout(subject_id)
 
     state.sync()
 
     if not result:
-        logger.error("Looks like the user %s is not logged in any IdP/AA" % subject_id)
+        logger.error("Looks like the user %s is not logged in any IdP/AA", subject_id)
         return HttpResponseBadRequest("You are not logged in any IdP/AA")
 
     if len(result) > 1:
@@ -357,8 +357,8 @@ def do_logout_service(request, data, binding, config_loader_path=None, next_page
         subject_id = _get_subject_id(request.session)
         if subject_id is None:
             logger.warning(
-                'The session does not contain the subject id for user %s. Performing local logout'
-                % request.user)
+                'The session does not contain the subject id for user %s. Performing local logout',
+                request.user)
             auth.logout(request)
             return render_to_response(logout_error_template, {},
                                       context_instance=RequestContext(request))
@@ -379,8 +379,8 @@ def finish_logout(request, response, next_page=None):
     if response and response.status_ok():
         if next_page is None and hasattr(settings, 'LOGOUT_REDIRECT_URL'):
             next_page = settings.LOGOUT_REDIRECT_URL
-        logger.debug('Performing django_logout with a next_page of %s'
-                     % next_page)
+        logger.debug('Performing django_logout with a next_page of %s',
+                     next_page)
         return django_logout(request, next_page=next_page)
     else:
         logger.error('Unknown error during the logout')
