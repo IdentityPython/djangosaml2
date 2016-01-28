@@ -1,5 +1,17 @@
 Changes
 =======
+0.14.0 (2016-01-28)
+-------------------
+- Upgrade to pysaml2-4.0.2. Thanks to kviktor
+- Django 1.9 support. Thanks to Jordi Gutiérrez Hermoso
+
+0.13.2 (2015-06-24)
+-------------------
+- Improved usage of standard Python logging.
+
+0.13.1 (2015-06-05)
+-------------------
+- Added support for djangosaml2 specific user model defined by SAML_USER_MODEL setting
 
 0.13.0 (2015-02-12)
 -------------------

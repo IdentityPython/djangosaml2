@@ -23,8 +23,8 @@ def read(*rnames):
 
 setup(
     name='djangosaml2-knaperek',
-    version='0.13.3',
-    description='pysaml2 integration in Django',
+    version='0.14.0',
+    description='pysaml2 integration for Django',
     long_description='\n\n'.join([read('README'), read('CHANGES')]),
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -40,13 +40,15 @@ setup(
     keywords="django,pysaml2,saml2,federated authentication,authentication",
     author="Yaco Sistemas",
     author_email="lgs@yaco.es",
-    url="https://bitbucket.org/lgs/djangosaml2",
+    maintainer="Jozef Knaperek",
+    url="https://bitbucket.org/knaperek/djangosaml2",
+    download_url="https://pypi.python.org/pypi/djangosaml2-knaperek/",
     license='Apache 2.0',
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        'pysaml2==2.2.0',
+        'pysaml2==4.0.2',
         'python-memcached==1.48',
         ],
     )
