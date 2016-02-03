@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import django
-from django.conf.urls import patterns, handler500, url
+from django.conf.urls import handler500, url
 from djangosaml2 import views
 
 urlpatterns = [
@@ -26,7 +26,10 @@ urlpatterns = [
     url(r'^metadata/$', views.metadata, name='saml2_metadata'),
 ]
 
-if django.VERSION < (1.8):
+if django.VERSION < (1, 8):
+    # django.conf.urls.patterns will be removed from django 1.10, so we
+    # import it here
+    from django.conf.urls import patterns
     urlpatterns = patterns('', *urlpatterns)
 
 handler500 = handler500
