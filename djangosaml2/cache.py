@@ -15,6 +15,7 @@
 
 from saml2.cache import Cache
 from saml2.ident import code, decode
+import six
 
 
 class DjangoSessionCacheAdapter(dict):
@@ -78,24 +79,16 @@ class IdentityCache(Cache):
 
     def get(self, name_id, entity_id, *args, **kwargs):
         info = super(IdentityCache, self).get(name_id, entity_id, *args, **kwargs)
-        try:
-            name_id = info['name_id']
-        except KeyError:
-            pass
-        else:
-            info = dict(info)
-            info['name_id'] = decode(name_id)
+
+        if 'name_id' in info and not isinstance(info['name_id'], six.string_types):
+            info['name_id'] = code(info['name_id'])
 
         return info
 
     def set(self, name_id, entity_id, info, *args, **kwargs):
-        try:
-            name_id = info['name_id']
-        except KeyError:
-            pass
-        else:
-            info = dict(info)
-            info['name_id'] = code(name_id)
+        if 'name_id' in info and not isinstance(info['name_id'], six.string_types):
+            info['name_id'] = code(info['name_id'])
+
         return super(IdentityCache, self).set(name_id, entity_id, info, *args, **kwargs)
 
 
