@@ -88,6 +88,7 @@ def login(request,
     logger.debug('Login process started')
 
     came_from = request.GET.get('next', settings.LOGIN_REDIRECT_URL)
+    logger.debug('[login] came from: {}'.format(came_from))
     if not came_from:
         logger.warning('The next parameter exists but is empty')
         came_from = settings.LOGIN_REDIRECT_URL
@@ -103,12 +104,20 @@ def login(request,
     # is True (default value) we will redirect him to the came_from view.
     # Otherwise, we will show an (configurable) authorization error.
     if not request.user.is_anonymous():
+        logger.debug('[login] user is not anonymous: {}'.format(request.user))
         try:
             redirect_authenticated_user = settings.SAML_IGNORE_AUTHENTICATED_USERS_ON_LOGIN
         except AttributeError:
             redirect_authenticated_user = True
 
+        logger.debug(
+            '[login] redirecting to {}?: {}'.format(
+                came_from, redirect_authenticated_user,
+            )
+        )
+
         if redirect_authenticated_user:
+            logger.debug('[login] redirecting user to {}'.format(came_from))
             return HttpResponseRedirect(came_from)
         else:
             logger.debug('User is already logged in')
@@ -118,6 +127,9 @@ def login(request,
 
     selected_idp = request.GET.get('idp', None)
     conf = get_config(config_loader_path, request)
+
+    logger.debug('[login] IdP: {}'.format(selected_idp))
+    logger.debug('[login] conf: {}'.format(conf))
 
     # is a embedded wayf needed?
     idps = available_idps(conf)
@@ -146,6 +158,7 @@ def login(request,
     # Read more in the official SAML2 specs (3.4.4.1):
     # http://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
     binding = BINDING_HTTP_POST if conf._sp_authn_requests_signed else BINDING_HTTP_REDIRECT
+    logger.debug('[login] binding: {}'.format(binding))
 
     client = Saml2Client(conf)
     try:
@@ -153,6 +166,7 @@ def login(request,
             entityid=selected_idp, relay_state=came_from,
             binding=binding,
             )
+        logger.debug('[login] session ID: {}'.format(session_id))
     except TypeError as e:
         logger.error('Unable to know which IdP to use')
         return HttpResponse(unicode(e))

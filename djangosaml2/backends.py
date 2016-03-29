@@ -72,6 +72,7 @@ class Saml2Backend(ModelBackend):
             logger.error('Session info or attribute mapping are None')
             return None
 
+        logger.debug('session_info: {}'.format(session_info))
         if not 'ava' in session_info:
             logger.error('"ava" key not found in session_info')
             return None
