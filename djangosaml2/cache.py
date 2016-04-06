@@ -37,6 +37,9 @@ class DjangoSessionCacheAdapter(dict):
     def sync(self):
         # Changes in inner objects do not cause session invalidation
         # https://docs.djangoproject.com/en/1.9/topics/http/sessions/#when-sessions-are-saved
+        objs = {}
+        objs.update(self)
+        self._set_objects(objs)
         self.session.modified = True
 
 
