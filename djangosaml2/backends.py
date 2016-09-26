@@ -87,6 +87,8 @@ class Saml2Backend(ModelBackend):
             settings, 'SAML_DJANGO_USER_MAIN_ATTRIBUTE', 'username')
         django_user_main_attribute_lookup = getattr(
             settings, 'SAML_DJANGO_USER_MAIN_ATTRIBUTE_LOOKUP', '')
+        django_user_main_attribute_filters = getattr(
+            settings, 'SAML_DJANGO_USER_MAIN_ATTRIBUTE_FILTERS', '')
 
         logger.debug('attributes: %s', attributes)
         saml_user = None
@@ -117,6 +119,7 @@ class Saml2Backend(ModelBackend):
         user_query_args = {
                 django_user_main_attribute+django_user_main_attribute_lookup:
                 main_attribute}
+        user_query_args.update(django_user_main_attribute_filters)
         user_create_defaults = {django_user_main_attribute: main_attribute}
 
         # Note that this could be accomplished in one try-except clause, but

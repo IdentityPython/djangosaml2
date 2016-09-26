@@ -317,9 +317,14 @@ If your main attribute is something inherently case-inensitive (such as
 an email address), you may set::
 
   SAML_DJANGO_USER_MAIN_ATTRIBUTE_LOOKUP = '__iexact'
-
 (This is simply appended to the main attribute name to form a Django
 query. Your main attribute must be unique even given this lookup.)
+
+If you have cases where it is possible to have a user validate on the idp yet
+be disabled on the SP, you may set SAML_DJANGO_USER_MAIN_ATTRIBUTE_FILTERS.
+Each key/value pair in this dict is passed as query args to the user model
+during authentication.::
+    SAML_DJANGO_USER_MAIN_ATTRIBUTE_FILTERS = {'disabled': False}
 
 Another option is to use the SAML2 name id as the username by setting::
 
