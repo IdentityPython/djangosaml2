@@ -119,7 +119,6 @@ class Saml2Backend(ModelBackend):
         user_query_args = {
                 django_user_main_attribute+django_user_main_attribute_lookup:
                 main_attribute}
-        user_query_args.update(django_user_main_attribute_filters)
         user_create_defaults = {django_user_main_attribute: main_attribute}
 
         # Note that this could be accomplished in one try-except clause, but
@@ -144,6 +143,7 @@ class Saml2Backend(ModelBackend):
                 logger.debug('User updated')
                 user = self.update_user(user, attributes, attribute_mapping)
         else:
+            user_query_args.update(django_user_main_attribute_filters)
             logger.debug('Retrieving existing user "%s"', main_attribute)
             try:
                 user = User.objects.get(**user_query_args)

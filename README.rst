@@ -323,7 +323,8 @@ query. Your main attribute must be unique even given this lookup.)
 If you have cases where it is possible to have a user validate on the idp yet
 be disabled on the SP, you may set SAML_DJANGO_USER_MAIN_ATTRIBUTE_FILTERS.
 Each key/value pair in this dict is passed as query args to the user model
-during authentication.::
+during authentication.  These filters will only be applied to the user model
+if SAML_CREATE_UNKNOWN_USER = False::
     SAML_DJANGO_USER_MAIN_ATTRIBUTE_FILTERS = {'disabled': False}
 
 Another option is to use the SAML2 name id as the username by setting::
