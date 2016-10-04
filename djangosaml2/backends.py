@@ -87,6 +87,8 @@ class Saml2Backend(ModelBackend):
             settings, 'SAML_DJANGO_USER_MAIN_ATTRIBUTE', 'username')
         django_user_main_attribute_lookup = getattr(
             settings, 'SAML_DJANGO_USER_MAIN_ATTRIBUTE_LOOKUP', '')
+        django_user_main_attribute_filters = getattr(
+            settings, 'SAML_DJANGO_USER_MAIN_ATTRIBUTE_FILTERS', '')
 
         logger.debug('attributes: %s', attributes)
         saml_user = None
@@ -141,6 +143,7 @@ class Saml2Backend(ModelBackend):
                 logger.debug('User updated')
                 user = self.update_user(user, attributes, attribute_mapping)
         else:
+            user_query_args.update(django_user_main_attribute_filters)
             logger.debug('Retrieving existing user "%s"', main_attribute)
             try:
                 user = User.objects.get(**user_query_args)
