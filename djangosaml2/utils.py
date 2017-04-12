@@ -12,15 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from defusedxml import ElementTree
 from django.conf import settings
+from saml2.s_utils import UnknownSystemEntity
 
 
 def get_custom_setting(name, default=None):
-    if hasattr(settings, name):
-        return getattr(settings, name)
-    else:
-        return default
+    return getattr(settings, name, default)
 
 
 def available_idps(config, langpref=None):
@@ -37,6 +34,22 @@ def available_idps(config, langpref=None):
     return dict([(idp, config.metadata.name(idp, langpref)) for idp in idps])
 
 
+def get_idp_sso_supported_bindings(idp_entity_id=None):
+    """Returns the list of bindings supported by an IDP
+    This is not clear in the pysaml2 code, so wrapping it in a util"""
+    # avoid circular import
+    from djangosaml2.conf import get_config
+    # load metadata store from config
+    config = get_config()
+    meta = getattr(config, 'metadata', {})
+    # if idp is None, assume only one exists so just use that
+    idp_entity_id = available_idps(config).keys().pop()
+    try:
+        return meta.service(idp_entity_id, 'idpsso_descriptor', 'single_sign_on_service').keys()
+    except UnknownSystemEntity:
+        return []
+
+
 def get_location(http_info):
     """Extract the redirect URL from a pysaml2 http_info object"""
     assert 'headers' in http_info
@@ -46,21 +59,3 @@ def get_location(http_info):
     header_name, header_value = headers[0]
     assert header_name == 'Location'
     return header_value
-
-
-def get_hidden_form_inputs(html):
-    """ Extracts name/value pairs from hidden input tags in an html form."""
-    pairs = dict()
-    tree = ElementTree.fromstring(html.replace('&', '&amp;'), forbid_dtd=True)
-    # python 2.6 doesn't have iter
-    if hasattr(tree, 'iter'):
-        node_iter = tree.iter()
-    else:
-        node_iter = tree.getiterator()
-    for node in node_iter:
-        if node.tag == 'input':
-            element = dict(node.items())
-            if element['type'] == 'hidden':
-                pairs[element['name']] = element['value']
-    return pairs
-

@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import logging
 
 try:
     from xml.etree import ElementTree
 except ImportError:
     from elementtree import ElementTree
-from defusedxml.common import (DTDForbidden, EntitiesForbidden,
-                               ExternalReferenceForbidden)
 
 from django.conf import settings
 from django.contrib import auth
@@ -47,6 +46,7 @@ from saml2 import BINDING_HTTP_REDIRECT, BINDING_HTTP_POST
 from saml2.client import Saml2Client
 from saml2.metadata import entity_descriptor
 from saml2.ident import code, decode
+from saml2.s_utils import UnsupportedBinding
 from saml2.sigver import MissingKey
 from saml2.response import StatusError
 
@@ -54,8 +54,7 @@ from djangosaml2.cache import IdentityCache, OutstandingQueriesCache
 from djangosaml2.cache import StateCache
 from djangosaml2.conf import get_config
 from djangosaml2.signals import post_authenticated
-from djangosaml2.utils import get_custom_setting, available_idps, get_location, \
-    get_hidden_form_inputs
+from djangosaml2.utils import get_custom_setting, available_idps, get_idp_sso_supported_bindings, get_location
 
 
 logger = logging.getLogger('djangosaml2')
@@ -156,40 +155,80 @@ def login(request,
     #
     # Read more in the official SAML2 specs (3.4.4.1):
     # http://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
-    binding = BINDING_HTTP_POST if getattr(conf, '_sp_authn_requests_signed', False) else BINDING_HTTP_REDIRECT
+    sign_requests = getattr(conf, '_sp_authn_requests_signed', False)
+    binding = BINDING_HTTP_POST if sign_requests else BINDING_HTTP_REDIRECT
+
+    # ensure our selected binding is supported by the IDP
+    supported_bindings = get_idp_sso_supported_bindings(selected_idp)
+    if binding not in supported_bindings:
+        logger.debug('Binding %s not in IDP %s supported bindings: %s',
+                     binding, selected_idp, supported_bindings)
+        if binding == BINDING_HTTP_POST:
+            logger.warning('IDP %s does not support %s,  trying %s',
+                           selected_idp, binding, BINDING_HTTP_REDIRECT)
+            binding = BINDING_HTTP_REDIRECT
+            if sign_requests:
+                logger.warning('sp_authn_requests_signed is True, but ignoring because pysaml2 does not support it for %s', BINDING_HTTP_REDIRECT)
+        else:
+            binding = BINDING_HTTP_POST
+        # if switched binding still not supported, give up
+        if binding not in supported_bindings:
+            raise UnsupportedBinding('IDP does not support %s or %s' % (
+                BINDING_HTTP_POST, BINDING_HTTP_REDIRECT))
 
     client = Saml2Client(conf)
-    try:
-        (session_id, result) = client.prepare_for_authenticate(
-            entityid=selected_idp, relay_state=came_from,
-            binding=binding,
-            )
-    except TypeError as e:
-        logger.error('Unable to know which IdP to use')
-        return HttpResponse(text_type(e))
 
+    http_response = None
+    logger.debug('Redirecting user to the IdP via %s binding.', binding)
+    if binding == BINDING_HTTP_REDIRECT:
+        try:
+            # we use sign kwarg to override in case of redirect binding
+            # otherwise pysaml2 may sign the xml for redirect which is incorrect
+            session_id, result = client.prepare_for_authenticate(
+                entityid=selected_idp, relay_state=came_from,
+                binding=binding, sign=False)
+        except TypeError as e:
+            logger.error('Unable to know which IdP to use')
+            return HttpResponse(text_type(e))
+        else:
+            http_response = HttpResponseRedirect(get_location(result))
+    elif binding == BINDING_HTTP_POST:
+        # use the html provided by pysaml2 if no template specified
+        if not post_binding_form_template:
+            try:
+                session_id, result = client.prepare_for_authenticate(
+                    entityid=selected_idp, relay_state=came_from,
+                    binding=binding)
+            except TypeError as e:
+                logger.error('Unable to know which IdP to use')
+                return HttpResponse(text_type(e))
+            else:
+                http_response = HttpResponse(result['data'])
+        # get request XML to build our own html based on the template
+        else:
+            try:
+                location = client.sso_location(selected_idp, binding)
+            except TypeError as e:
+                logger.error('Unable to know which IdP to use')
+                return HttpResponse(text_type(e))
+            session_id, request_xml = client.create_authn_request(
+                location,
+                binding=binding)
+            http_response = render(request, post_binding_form_template, {
+                'target_url': location,
+                'params': {
+                    'SAMLRequest': base64.b64encode(request_xml),
+                    'RelayState': came_from,
+                    },
+                })
+    else:
+        raise UnsupportedBinding('Unsupported binding: %s', binding)
+
+    # success, so save the session ID and return our response
     logger.debug('Saving the session_id in the OutstandingQueries cache')
     oq_cache = OutstandingQueriesCache(request.session)
     oq_cache.set(session_id, came_from)
-
-    logger.debug('Redirecting user to the IdP via %s binding.', binding.split(':')[-1])
-    if binding == BINDING_HTTP_REDIRECT:
-        return HttpResponseRedirect(get_location(result))
-    elif binding == BINDING_HTTP_POST:
-        if not post_binding_form_template:
-            return HttpResponse(result['data'])
-        try:
-            params = get_hidden_form_inputs(result['data'][3])
-            return render(request, post_binding_form_template, {
-                    'target_url': result['url'],
-                    'params': params,
-                    })
-        except (DTDForbidden, EntitiesForbidden, ExternalReferenceForbidden):
-            raise PermissionDenied
-        except TemplateDoesNotExist:
-            return HttpResponse(result['data'])
-    else:
-        raise NotImplementedError('Unsupported binding: %s', binding)
+    return http_response
 
 
 @require_POST
