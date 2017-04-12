@@ -48,3 +48,14 @@ def get_idp_sso_supported_bindings(idp_entity_id=None):
         return meta.service(idp_entity_id, 'idpsso_descriptor', 'single_sign_on_service').keys()
     except UnknownSystemEntity:
         return []
+
+
+def get_location(http_info):
+    """Extract the redirect URL from a pysaml2 http_info object"""
+    assert 'headers' in http_info
+    headers = http_info['headers']
+
+    assert len(headers) == 1
+    header_name, header_value = headers[0]
+    assert header_name == 'Location'
+    return header_value
