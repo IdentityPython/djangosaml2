@@ -45,7 +45,7 @@ Changes
 0.14.0 (2016-01-28)
 -------------------
 - Upgrade to pysaml2-4.0.2. Thanks to kviktor
-- Django 1.9 support. Thanks to Jordi Gutiérrez Hermoso
+- Django 1.9 support. Thanks to Jordi Gutierrez Hermoso
 
 0.13.2 (2015-06-24)
 -------------------
