@@ -3,6 +3,7 @@ Changes
 
 UNRELEASED
 ----------
+- Added management command to manage federation metadata.
 - Added a clean_attributes hook allowing backends to restructure attributes extracted from SAML response.
 - Log when fields are missing in a SAML response.
 - Log when attribute_mapping maps to nonexistent User fields.

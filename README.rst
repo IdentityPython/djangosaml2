@@ -480,6 +480,47 @@ filter like this::
              'class' => 'core:AttributeMap', 'name2oid'
         ),
 
+Automating metadata management
+==============================
+
+In order to connect to Identity Providers and Service Providers from a
+federation, you need to setup metadata (in the `SAML 2.0 Metadata XML Format`_)
+for the entries you trust. djangosaml2 can help managing these metadata with
+the ``./manage.py fetch_metadata`` management command::
+
+    usage: manage.py fetch_metadata [-h] [-m MAX_AGE] metadata_url output_file
+
+    Refreshes local metadata cache. Downloads metadata from URL and caches the
+    result in output file. The cache is valid for max-age seconds. The file age
+    is considered to be the last modification time.
+
+    positional arguments:
+      metadata_url          URL to download the metadata XML file from.
+      output_file           Metadata file destination.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -m MAX_AGE, --max-age MAX_AGE
+                            Refresh file if older than max-age seconds.
+                            Default: 86400 seconds (24 hours)
+
+.. _SAML 2.0 Metadata XML Format: https://docs.oasis-open.org/security/saml/v2.0/saml-metadata-2.0-os.pdf
+
+A ``cron`` job can then refresh the metadata at regular interval, for example:
+
+.. code-block:: bash
+
+    # Open http user's crontab.
+    $ sudo -u http crontab -e
+    # In the text editor:
+    0 * * * * /path/to/python /path/to/project/manage.py fetch_metadata https://example.org/metadata /var/lib/djangosaml2/metadata/example.org.xml
+    # After replacing the paths with your settings, save and quit.
+    # At the begining of each hour, the metadata will be refreshed if they expired.
+
+The metadata can also be refreshed from a Django view using `call_command`_.
+
+.. _call_command: https://docs.djangoproject.com/en/dev/ref/django-admin/#django.core.management.call_command
+
 Testing
 =======
 

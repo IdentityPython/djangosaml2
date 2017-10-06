@@ -27,6 +27,7 @@ extra = {'test': []}
 if sys.version_info < (3, 4):
     # Necessary to use assertLogs in tests
     extra['test'].append('unittest2')
+    extra['test'].append('mock')
 
 
 setup(
