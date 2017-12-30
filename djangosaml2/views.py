@@ -17,9 +17,18 @@ import base64
 import logging
 
 try:
-    from xml.etree import ElementTree
+    from xml.etree import cElementTree as ElementTree
+
+    if ElementTree.VERSION < '1.3.0':
+        # cElementTree has no support for register_namespace
+        # neither _namespace_map, thus we sacrify performance
+        # for correctness
+        from xml.etree import ElementTree
 except ImportError:
-    from elementtree import ElementTree
+    try:
+        import cElementTree as ElementTree
+    except ImportError:
+        from elementtree import ElementTree
 
 from django.conf import settings
 from django.contrib import auth
@@ -40,10 +49,17 @@ from django.template import TemplateDoesNotExist
 from django.utils.six import text_type, binary_type, PY3
 from django.views.decorators.csrf import csrf_exempt
 
-from saml2 import BINDING_HTTP_REDIRECT, BINDING_HTTP_POST
+from saml2 import (
+    ecp, create_class_from_xml_string,
+    BINDING_HTTP_REDIRECT, BINDING_HTTP_POST,
+)
+from saml2.client import Saml2Client
+from saml2.client_base import MIME_PAOS
 from saml2.metadata import entity_descriptor
 from saml2.ident import code, decode
 from saml2.sigver import MissingKey
+from saml2.ecp_client import PAOS_HEADER_INFO
+from saml2.profile.ecp import RelayState
 from saml2.s_utils import UnsupportedBinding
 from saml2.response import (
     StatusError, StatusAuthnFailed, SignatureError, StatusRequestDenied,
@@ -55,11 +71,11 @@ from saml2.xmldsig import SIG_RSA_SHA1, SIG_RSA_SHA256  # support for SHA1 is re
 from djangosaml2.cache import IdentityCache, OutstandingQueriesCache
 from djangosaml2.cache import StateCache
 from djangosaml2.conf import get_config
-from djangosaml2.overrides import Saml2Client
 from djangosaml2.signals import post_authenticated
 from djangosaml2.utils import (
     available_idps, fail_acs_response, get_custom_setting,
     get_idp_sso_supported_bindings, get_location, is_safe_url_compat,
+    XmlResponse, SoapFaultResponse
 )
 
 
@@ -107,7 +123,13 @@ def login(request,
     If set to None or nonexistent template, default form from the saml2 library
     will be rendered.
     """
-    logger.debug('Login process started')
+    is_ecp = ("HTTP_PAOS" in request.META and
+              request.META["HTTP_PAOS"] == PAOS_HEADER_INFO and
+              MIME_PAOS in request.META["HTTP_ACCEPT"])
+    if is_ecp:
+        logger.debug('ECP login process started')
+    else:
+        logger.debug('Login process started')
 
     came_from = request.GET.get('next', settings.LOGIN_REDIRECT_URL)
     if not came_from:
@@ -132,11 +154,15 @@ def login(request,
         redirect_authenticated_user = getattr(settings, 'SAML_IGNORE_AUTHENTICATED_USERS_ON_LOGIN', True)
         if redirect_authenticated_user:
             return HttpResponseRedirect(came_from)
+        elif is_ecp:
+            return HttpResponse()
         else:
             logger.debug('User is already logged in')
-            return render(request, authorization_error_template, {
-                    'came_from': came_from,
-                    })
+            return render(
+                request,
+                authorization_error_template,
+                {'came_from': came_from, }
+            )
 
     selected_idp = request.GET.get('idp', None)
     conf = get_config(config_loader_path, request)
@@ -145,10 +171,14 @@ def login(request,
     idps = available_idps(conf)
     if selected_idp is None and len(idps) > 1:
         logger.debug('A discovery process is needed')
-        return render(request, wayf_template, {
+        return render(
+            request,
+            wayf_template,
+            {
                 'available_idps': idps.items(),
                 'came_from': came_from,
-                })
+            }
+        )
 
     # choose a binding to try first
     sign_requests = getattr(conf, '_sp_authn_requests_signed', False)
@@ -174,9 +204,37 @@ def login(request,
                                      selected_idp, BINDING_HTTP_POST, BINDING_HTTP_REDIRECT)
 
     client = Saml2Client(conf)
-    http_response = None
+    try:
+        if is_ecp:
+            (session_id, result) = ecp.ecp_auth_request(
+                cls=client,
+                entityid=None,
+                relay_state=came_from
+            )
+            if not session_id > 0:
+                logger.error("Error in ECP auth request.")
+        else:
+            (session_id, result) = client.prepare_for_authenticate(
+                entityid=selected_idp, relay_state=came_from,
+                binding=binding,
+            )
+    except TypeError as e:
+        message = 'Unable to know which IdP to use'
+        logger.error(message)
+        if is_ecp:
+            return SoapFaultResponse(message, status=400)
+        return HttpResponseBadRequest(message)
 
-    logger.debug('Redirecting user to the IdP via %s binding.', binding)
+    logger.debug('Saving the session_id in the OutstandingQueries cache')
+    oq_cache = OutstandingQueriesCache(request.session)
+    oq_cache.set(session_id, came_from)
+
+    if is_ecp:
+        logger.debug('Redirecting the ECP client to the IdP')
+        return XmlResponse(result)
+    http_response = None
+    logger.debug('Redirecting user to the IdP via %s binding.', binding.split(':')[-1])
+
     if binding == BINDING_HTTP_REDIRECT:
         try:
             # do not sign the xml itself, instead use the sigalg to
@@ -255,48 +313,68 @@ def assertion_consumer_service(request,
     djangosaml2.backends.Saml2Backend that should be
     enabled in the settings.py
     """
-    attribute_mapping = attribute_mapping or get_custom_setting('SAML_ATTRIBUTE_MAPPING', {'uid': ('username', )})
-    create_unknown_user = create_unknown_user if create_unknown_user is not None else \
-                          get_custom_setting('SAML_CREATE_UNKNOWN_USER', True)
-    conf = get_config(config_loader_path, request)
-    try:
-        xmlstr = request.POST['SAMLResponse']
-    except KeyError:
-        logger.warning('Missing "SAMLResponse" parameter in POST data.')
-        raise SuspiciousOperation
+    is_ecp = MIME_PAOS == request.META["CONTENT_TYPE"]
 
+    attribute_mapping = attribute_mapping or get_custom_setting(
+            'SAML_ATTRIBUTE_MAPPING', {'uid': ('username', )})
+    create_unknown_user = create_unknown_user or get_custom_setting(
+            'SAML_CREATE_UNKNOWN_USER', True)
+    logger.debug('Assertion Consumer Service started')
+
+    conf = get_config(config_loader_path, request)
     client = Saml2Client(conf, identity_cache=IdentityCache(request.session))
+
+    if is_ecp:
+        data = client.unpack_soap_message(request.body)
+        relay_state_found = False
+        for header in data["header"]:
+            inst = create_class_from_xml_string(RelayState, header)
+            if isinstance(inst, RelayState):
+                relay_state_found = True
+        if not relay_state_found:
+            return SoapFaultResponse('Couldn\'t find RelayState data.',
+                                     status=400)
+        xmlstr = data["body"]
+    else:
+        if 'SAMLResponse' not in request.POST:
+            return HttpResponseBadRequest(
+                'Couldn\'t find "SAMLResponse" in POST data.')
+        xmlstr = request.POST['SAMLResponse']
 
     oq_cache = OutstandingQueriesCache(request.session)
     outstanding_queries = oq_cache.outstanding_queries()
 
     try:
-        response = client.parse_authn_request_response(xmlstr, BINDING_HTTP_POST, outstanding_queries)
+        # process the authentication response
+        binding = None if is_ecp else BINDING_HTTP_POST
+        response = client.parse_authn_request_response(xmlstr, binding,
+                                                       outstanding_queries)
     except (StatusError, ToEarly):
         logger.exception("Error processing SAML Assertion.")
-        return fail_acs_response(request)
+        return fail_acs_response(request, soap=is_ecp)
     except ResponseLifetimeExceed:
         logger.info("SAML Assertion is no longer valid. Possibly caused by network delay or replay attack.", exc_info=True)
-        return fail_acs_response(request)
+        return fail_acs_response(request, soap=is_ecp)
     except SignatureError:
         logger.info("Invalid or malformed SAML Assertion.", exc_info=True)
-        return fail_acs_response(request)
+        return fail_acs_response(request, soap=is_ecp)
     except StatusAuthnFailed:
         logger.info("Authentication denied for user by IdP.", exc_info=True)
-        return fail_acs_response(request)
+        return fail_acs_response(request, soap=is_ecp)
     except StatusRequestDenied:
         logger.warning("Authentication interrupted at IdP.", exc_info=True)
-        return fail_acs_response(request)
+        return fail_acs_response(request, soap=is_ecp)
     except MissingKey:
         logger.exception("SAML Identity Provider is not configured correctly: certificate key is missing!")
-        return fail_acs_response(request)
+        return fail_acs_response(request, soap=is_ecp)
     except UnsolicitedResponse:
         logger.exception("Received SAMLResponse when no request has been made.")
-        return fail_acs_response(request)
+        return fail_acs_response(request, soap=is_ecp)
 
-    if response is None:
+      if response is None:
         logger.warning("Invalid SAML Assertion received (unknown error).")
-        return fail_acs_response(request, status=400, exc_class=SuspiciousOperation)
+        return fail_acs_response(request, status=400,
+                                 exc_class=SuspiciousOperation, soap=is_ecp)
 
     session_id = response.session_id()
     oq_cache.delete(session_id)
@@ -315,6 +393,10 @@ def assertion_consumer_service(request,
                              attribute_mapping=attribute_mapping,
                              create_unknown_user=create_unknown_user)
     if user is None:
+        message = 'The user is None'
+        logger.error(message)
+        if is_ecp:
+            return SoapFaultResponse(message, status=403)
         logger.warning("Could not authenticate user received in SAML Assertion. Session info: %s", session_info)
         raise PermissionDenied
 
@@ -418,7 +500,7 @@ def logout_service_post(request, *args, **kwargs):
 
 
 def do_logout_service(request, data, binding, config_loader_path=None, next_page=None,
-                   logout_error_template='djangosaml2/logout_error.html'):
+                      logout_error_template='djangosaml2/logout_error.html'):
     """SAML Logout Response endpoint
 
     The IdP will send the logout response to this view,
@@ -505,5 +587,6 @@ def register_namespace_prefixes():
     else:
         for prefix, namespace in prefixes:
             ElementTree._namespace_map[namespace] = prefix
+
 
 register_namespace_prefixes()

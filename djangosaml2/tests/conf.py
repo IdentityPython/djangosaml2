@@ -53,6 +53,7 @@ def create_conf(sp_host='sp.example.com', idp_hosts=['idp.example.com'],
                     },
                 'required_attributes': ['uid'],
                 'optional_attributes': ['eduPersonAffiliation'],
+                'want_response_signed': False,
                 'idp': {}  # this is filled later
                 },
             },

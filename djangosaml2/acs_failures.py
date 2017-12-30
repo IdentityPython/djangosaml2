@@ -8,6 +8,8 @@ from __future__ import unicode_literals
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
 
+from djangosaml2.utils import SoapFaultResponse
+
 
 def template_failure(request, status=403, **kwargs):
     """ Renders a SAML-specific template with general authentication error description. """
@@ -20,3 +22,7 @@ def exception_failure(request, exc_class=PermissionDenied, **kwargs):
     and thus ends up rendering a project-wide error page for Permission Denied exceptions.
     """
     raise exc_class
+
+
+def soap_failure(request, status=403, **kwargs):
+    return SoapFaultResponse("Authentication Error. Access Denied.", status=status)

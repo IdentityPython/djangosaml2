@@ -14,9 +14,13 @@
 
 import django
 from django.conf import settings
+from django.http import HttpResponse
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.http import is_safe_url
 from django.utils.module_loading import import_string
+
+from saml2.soap import soap_fault, make_soap_enveloped_saml_thingy
+from saml2.schema.soapenv import fault_from_string
 from saml2.s_utils import UnknownSystemEntity
 
 
@@ -77,9 +81,38 @@ def fail_acs_response(request, *args, **kwargs):
     The default behavior uses SAML specific template that is rendered on any ACS error,
     but this can be simply changed so that PermissionDenied exception is raised instead.
     """
+    from djangosaml2.acs_failures import soap_failure
+    soap = kwargs.get('soap', False)
+    if soap:
+        return soap_failure(request, *args, **kwargs)
+
     failure_function = import_string(get_custom_setting('SAML_ACS_FAILURE_RESPONSE_FUNCTION',
                                                         'djangosaml2.acs_failures.template_failure'))
     return failure_function(request, *args, **kwargs)
+
+
+class XmlResponse(HttpResponse):
+    """
+    An HTTP response class with content type: text/xml.
+    """
+    def __init__(self, content, **kwargs):
+        kwargs.setdefault('content_type', 'text/xml')
+        super(XmlResponse, self).__init__(content=content, **kwargs)
+
+
+class SoapFaultResponse(XmlResponse):
+    """
+    An XML response with SOAP Fault content.
+    """
+    def __init__(self,
+                 message=None,
+                 actor=None,
+                 code=None,
+                 detail=None,
+                 **kwargs):
+        soap_message = make_soap_enveloped_saml_thingy(
+            fault_from_string(soap_fault(message)))
+        super(SoapFaultResponse, self).__init__(soap_message, **kwargs)
 
 
 def is_safe_url_compat(url, allowed_hosts=None, require_https=False):
