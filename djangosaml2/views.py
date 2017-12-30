@@ -61,7 +61,10 @@ from saml2.sigver import MissingKey
 from saml2.ecp_client import PAOS_HEADER_INFO
 from saml2.profile.ecp import RelayState
 from saml2.s_utils import UnsupportedBinding
-from saml2.response import StatusError, StatusAuthnFailed, SignatureError, StatusRequestDenied
+from saml2.response import (
+    StatusError, StatusAuthnFailed, SignatureError, StatusRequestDenied,
+    UnsolicitedResponse,
+)
 from saml2.validate import ResponseLifetimeExceed, ToEarly
 from saml2.xmldsig import SIG_RSA_SHA1, SIG_RSA_SHA256  # support for SHA1 is required by spec
 
@@ -364,8 +367,11 @@ def assertion_consumer_service(request,
     except MissingKey:
         logger.exception("SAML Identity Provider is not configured correctly: certificate key is missing!")
         return fail_acs_response(request, soap=is_ecp)
+    except UnsolicitedResponse:
+        logger.exception("Received SAMLResponse when no request has been made.")
+        return fail_acs_response(request, soap=is_ecp)
 
-    if response is None:
+      if response is None:
         logger.warning("Invalid SAML Assertion received (unknown error).")
         return fail_acs_response(request, status=400,
                                  exc_class=SuspiciousOperation, soap=is_ecp)

@@ -64,10 +64,10 @@ class Saml2Backend(ModelBackend):
     def authenticate(self, request, session_info=None, attribute_mapping=None,
                      create_unknown_user=True, **kwargs):
         if session_info is None or attribute_mapping is None:
-            logger.error('Session info or attribute mapping are None')
+            logger.info('Session info or attribute mapping are None')
             return None
 
-        if not 'ava' in session_info:
+        if 'ava' not in session_info:
             logger.error('"ava" key not found in session_info')
             return None
 

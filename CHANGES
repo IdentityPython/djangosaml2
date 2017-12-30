@@ -3,10 +3,17 @@ Changes
 
 UNRELEASED
 ----------
+- A 403 (permission denied) is now raised if a SAMLResponse is replayed, instead of 500.
+
+0.16.11 (2017-12-25)
+----------
+- Dropped compatibility for Python < 2.7 and Django < 1.8.
 - Added a clean_attributes hook allowing backends to restructure attributes extracted from SAML response.
 - Log when fields are missing in a SAML response.
 - Log when attribute_mapping maps to nonexistent User fields.
-- Dropped compatibility for Python < 2.7 and Django < 1.8.
+- Multiple compatibility fixes and other minor improvements and code cleanups
+
+Thanks to francoisfreitag, mhindery, charn, jdufresne
 
 0.16.10 (2017-10-02)
 -------------------
