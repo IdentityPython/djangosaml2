@@ -16,11 +16,6 @@
 import base64
 import logging
 
-try:
-    from xml.etree import ElementTree
-except ImportError:
-    from elementtree import ElementTree
-
 from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.decorators import login_required
@@ -185,9 +180,11 @@ def login(request,
                                   'sha256': SIG_RSA_SHA256}
             sig_alg_option = getattr(conf, '_sp_authn_requests_signed_alg', 'sha1')
             sigalg = sig_alg_option_map[sig_alg_option] if sign_requests else None
+            nsprefix = get_namespace_prefixes()
             session_id, result = client.prepare_for_authenticate(
                 entityid=selected_idp, relay_state=came_from,
-                binding=binding, sign=False, sigalg=sigalg)
+                binding=binding, sign=False, sigalg=sigalg,
+                nsprefix=nsprefix)
         except TypeError as e:
             logger.error('Unable to know which IdP to use')
             return HttpResponse(text_type(e))
@@ -486,7 +483,7 @@ def metadata(request, config_loader_path=None, valid_for=None):
                         content_type="text/xml; charset=utf8")
 
 
-def register_namespace_prefixes():
+def get_namespace_prefixes():
     from saml2 import md, saml, samlp
     try:
         from saml2 import xmlenc
@@ -494,16 +491,8 @@ def register_namespace_prefixes():
     except ImportError:
         import xmlenc
         import xmldsig
-    prefixes = (('saml', saml.NAMESPACE),
-                ('samlp', samlp.NAMESPACE),
-                ('md', md.NAMESPACE),
-                ('ds', xmldsig.NAMESPACE),
-                ('xenc', xmlenc.NAMESPACE))
-    if hasattr(ElementTree, 'register_namespace'):
-        for prefix, namespace in prefixes:
-            ElementTree.register_namespace(prefix, namespace)
-    else:
-        for prefix, namespace in prefixes:
-            ElementTree._namespace_map[namespace] = prefix
-
-register_namespace_prefixes()
+    return {'saml': saml.NAMESPACE,
+            'samlp': samlp.NAMESPACE,
+            'md': md.NAMESPACE,
+            'ds': xmldsig.NAMESPACE,
+            'xenc': xmlenc.NAMESPACE}
