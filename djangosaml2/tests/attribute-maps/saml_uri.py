@@ -7,6 +7,7 @@ NETSCAPE_LDAP = "urn:oid:2.16.840.1.113730.3.1."
 UCL_DIR_PILOT = 'urn:oid:0.9.2342.19200300.100.1.'
 PKCS_9 = "urn:oid:1.2.840.113549.1.9.1."
 UMICH = "urn:oid:1.3.6.1.4.1.250.1.57."
+SCHAC = "urn:oid:1.3.6.1.4.1.25178.1.2."
 
 MAP = {
     "identifier": "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
@@ -65,6 +66,7 @@ MAP = {
         X500ATTR_OID+'6': 'c',
         X500ATTR_OID+'5': 'serialNumber',
         X500ATTR_OID+'4': 'sn',
+        X500ATTR_OID+'3': 'cn',
         UCL_DIR_PILOT+'60': 'jpegPhoto',
         X500ATTR_OID+'65': 'pseudonym',
         NOREDUPERSON_OID+'5': 'norEduPersonNIN',
@@ -94,6 +96,26 @@ MAP = {
         NOREDUPERSON_OID+'3': 'norEduPersonBirthDate',
         UMICH+'57': 'labeledURI',
         UCL_DIR_PILOT+'1': 'uid',
+        SCHAC+'1': 'schacMotherTongue',
+        SCHAC+'2': 'schacGender',
+        SCHAC+'3': 'schacDateOfBirth',
+        SCHAC+'4': 'schacPlaceOfBirth',
+        SCHAC+'5': 'schacCountryOfCitizenship',
+        SCHAC+'6': 'schacSn1',
+        SCHAC+'7': 'schacSn2',
+        SCHAC+'8': 'schacPersonalTitle',
+        SCHAC+'9': 'schacHomeOrganization',
+        SCHAC+'10': 'schacHomeOrganizationType',
+        SCHAC+'11': 'schacCountryOfResidence',
+        SCHAC+'12': 'schacUserPresenceID',
+        SCHAC+'13': 'schacPersonalPosition',
+        SCHAC+'14': 'schacPersonalUniqueCode',
+        SCHAC+'15': 'schacPersonalUniqueID',
+        SCHAC+'17': 'schacExpiryDate',
+        SCHAC+'18': 'schacUserPrivateAttribute',
+        SCHAC+'19': 'schacUserStatus',
+        SCHAC+'20': 'schacProjectMembership',
+        SCHAC+'21': 'schacProjectSpecificRole',
     },
     "to": {
         'roleOccupant': X500ATTR_OID+'33',
@@ -147,6 +169,7 @@ MAP = {
         'eduPersonEntitlement': EDUPERSON_OID+'7',
         'generationQualifier': X500ATTR_OID+'44',
         'eduPersonAffiliation': EDUPERSON_OID+'1',
+        'edupersonaffiliation': EDUPERSON_OID+'1',
         'eduPersonPrincipalName': EDUPERSON_OID+'6',
         'edupersonprincipalname': EDUPERSON_OID+'6',
         'localityName': X500ATTR_OID+'7',
@@ -192,8 +215,29 @@ MAP = {
         'carLicense': NETSCAPE_LDAP+'1',
         'presentationAddress': X500ATTR_OID+'29',
         'sn': X500ATTR_OID+'4',
+        'cn': X500ATTR_OID+'3',
         'domainComponent': UCL_DIR_PILOT+'25',
         'labeledURI': UMICH+'57',
-        'uid': UCL_DIR_PILOT+'1'
+        'uid': UCL_DIR_PILOT+'1',
+        'schacMotherTongue':SCHAC+'1',
+        'schacGender': SCHAC+'2',
+        'schacDateOfBirth':SCHAC+'3',
+        'schacPlaceOfBirth': SCHAC+'4',
+        'schacCountryOfCitizenship':SCHAC+'5',
+        'schacSn1': SCHAC+'6',
+        'schacSn2': SCHAC+'7',
+        'schacPersonalTitle':SCHAC+'8',
+        'schacHomeOrganization': SCHAC+'9',
+        'schacHomeOrganizationType': SCHAC+'10',
+        'schacCountryOfResidence': SCHAC+'11',
+        'schacUserPresenceID': SCHAC+'12',
+        'schacPersonalPosition': SCHAC+'13',
+        'schacPersonalUniqueCode': SCHAC+'14',
+        'schacPersonalUniqueID': SCHAC+'15',
+        'schacExpiryDate': SCHAC+'17',
+        'schacUserPrivateAttribute': SCHAC+'18',
+        'schacUserStatus': SCHAC+'19',
+        'schacProjectMembership': SCHAC+'20',
+        'schacProjectSpecificRole': SCHAC+'21',
     }
-}  
+}
