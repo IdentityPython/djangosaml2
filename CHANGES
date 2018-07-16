@@ -1,7 +1,7 @@
 Changes
 =======
 
-0.17.0 (2018-07-16)
+0.17.1 (2018-07-16)
 ----------
 - A 403 (permission denied) is now raised if a SAMLResponse is replayed, instead of 500.
 - Dropped support for Python 3.3
