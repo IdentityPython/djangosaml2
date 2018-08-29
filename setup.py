@@ -70,7 +70,7 @@ setup(
     install_requires=[
         'defusedxml>=0.4.1',
         'Django>=1.8',
-        'pysaml2==4.5.0',
+        'pysaml2>=4.6.0',
         ],
     extras_require=extra,
     )
