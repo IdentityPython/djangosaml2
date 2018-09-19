@@ -15,6 +15,7 @@
 
 import base64
 import logging
+import inspect
 
 from django.conf import settings
 from django.contrib import auth
@@ -304,7 +305,10 @@ def assertion_consumer_service(request,
     if callable(attribute_mapping):
         attribute_mapping = attribute_mapping()
     if callable(create_unknown_user):
-        create_unknown_user = create_unknown_user()
+        if len(inspect.getargspec(create_unknown_user).args) == 1:
+            create_unknown_user = create_unknown_user(session_info)
+        else:
+            create_unknown_user = create_unknown_user()
 
     logger.debug('Trying to authenticate the user. Session info: %s', session_info)
     user = auth.authenticate(request=request,

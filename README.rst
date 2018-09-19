@@ -347,18 +347,28 @@ Another option is to use the SAML2 name id as the username by setting::
 You can configure djangosaml2 to create such user if it is not already in
 the Django database or maybe you don't want to allow users that are not
 in your database already. For this purpose there is another option you
-can set in the settings.py file::
+can set in the settings.py file. This setting is True by default. ::
 
   SAML_CREATE_UNKNOWN_USER = True
 
-This setting is True by default.
+``SAML_CREATE_UNKNOWN_USER`` can also be a callable with or without the session_info,
+for more flexibility. ::
 
-  ACS_DEFAULT_REDIRECT_URL = reverse_lazy('some_url_name')
+  # example without session_info
+  def only_on_monday():
+    import datetime
+    return datetime.datetime.today().weekday() == 0
+  SAML_CREATE_UNKNOWN_USER = only_on_monday
 
-This setting lets you specify a URL for redirection after a successful
+  # example with session_info and lambda
+  SAML_CREATE_UNKNOWN_USER = lambda session_info: True if 'value' in session_info['ava']['o'] else False
+
+The ``ACS_DEFAULT_REDIRECT_URL`` setting lets you specify a URL for redirection after a successful
 authentication. Particularly useful when you only plan to use
 IdP initiated login and the IdP does not have a configured RelayState
-parameter. The default is ``/``.
+parameter. The default is ``/``. ::
+
+  ACS_DEFAULT_REDIRECT_URL = reverse_lazy('some_url_name')
 
 The other thing you will probably want to configure is the mapping of
 SAML2 user attributes to Django user attributes. By default only the
