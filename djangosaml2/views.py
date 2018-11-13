@@ -42,7 +42,7 @@ from saml2.sigver import MissingKey
 from saml2.s_utils import UnsupportedBinding
 from saml2.response import (
     StatusError, StatusAuthnFailed, SignatureError, StatusRequestDenied,
-    UnsolicitedResponse,
+    UnsolicitedResponse, StatusNoAuthnContext,
 )
 from saml2.validate import ResponseLifetimeExceed, ToEarly
 from saml2.xmldsig import SIG_RSA_SHA1, SIG_RSA_SHA256  # support for SHA1 is required by spec
@@ -283,6 +283,9 @@ def assertion_consumer_service(request,
         return fail_acs_response(request)
     except StatusRequestDenied:
         logger.warning("Authentication interrupted at IdP.", exc_info=True)
+        return fail_acs_response(request)
+    except StatusNoAuthnContext:
+        logger.warning("Missing Authentication Context from IdP.", exc_info=True)
         return fail_acs_response(request)
     except MissingKey:
         logger.exception("SAML Identity Provider is not configured correctly: certificate key is missing!")
