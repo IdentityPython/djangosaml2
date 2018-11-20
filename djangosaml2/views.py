@@ -41,13 +41,15 @@ from django.utils.six import text_type, binary_type, PY3
 from django.views.decorators.csrf import csrf_exempt
 
 from saml2 import BINDING_HTTP_REDIRECT, BINDING_HTTP_POST
+from saml2.config import SP_ARGS, SPEC
 from saml2.metadata import entity_descriptor
 from saml2.ident import code, decode
 from saml2.sigver import MissingKey
 from saml2.s_utils import UnsupportedBinding
 from saml2.response import StatusError, StatusAuthnFailed, SignatureError, StatusRequestDenied
 from saml2.validate import ResponseLifetimeExceed, ToEarly
-from saml2.xmldsig import SIG_RSA_SHA1, SIG_RSA_SHA256  # support for SHA1 is required by spec
+# support for SHA1 is required by spec
+from saml2.xmldsig import SIG_RSA_SHA1, SIG_RSA_SHA256, DIGEST_SHA256, DIGEST_SHA1
 
 from djangosaml2.cache import IdentityCache, OutstandingQueriesCache
 from djangosaml2.cache import StateCache
@@ -59,6 +61,13 @@ from djangosaml2.utils import (
     get_idp_sso_supported_bindings, get_location, is_safe_url_compat,
 )
 
+# Monkey patch
+if 'authn_requests_signed_alg' not in SP_ARGS:
+    SP_ARGS += ['authn_requests_signed_alg']
+    SPEC['sp'] += ['authn_requests_signed_alg']
+if 'authn_requests_digest_alg' not in SP_ARGS:
+    SP_ARGS += ['authn_requests_digest_alg']
+    SPEC['sp'] += ['authn_requests_digest_alg']
 
 logger = logging.getLogger('djangosaml2')
 
@@ -173,18 +182,24 @@ def login(request,
     client = Saml2Client(conf)
     http_response = None
 
+    # do not sign the xml itself, instead use the sigalg to
+    # generate the signature as a URL param
+    sig_alg_option_map = {'sha1': SIG_RSA_SHA1,
+                          'sha256': SIG_RSA_SHA256}
+    sig_alg_option = getattr(conf, '_sp_authn_requests_signed_alg', 'sha1')
+    sigalg = sig_alg_option_map[sig_alg_option] if sign_requests else None
+
+    dig_alg_option_map = {'sha1': DIGEST_SHA1,
+                          'sha256': DIGEST_SHA256}
+    dig_alg_option = getattr(conf, '_sp_authn_requests_digest_alg', 'sha1')
+    digalg = dig_alg_option_map[dig_alg_option]
+
     logger.debug('Redirecting user to the IdP via %s binding.', binding)
     if binding == BINDING_HTTP_REDIRECT:
         try:
-            # do not sign the xml itself, instead use the sigalg to
-            # generate the signature as a URL param
-            sig_alg_option_map = {'sha1': SIG_RSA_SHA1,
-                                  'sha256': SIG_RSA_SHA256}
-            sig_alg_option = getattr(conf, '_sp_authn_requests_signed_alg', 'sha1')
-            sigalg = sig_alg_option_map[sig_alg_option] if sign_requests else None
             session_id, result = client.prepare_for_authenticate(
                 entityid=selected_idp, relay_state=came_from,
-                binding=binding, sign=False, sigalg=sigalg)
+                binding=binding, sign=False, sig_alg=sigalg, digest_alg=digalg)
         except TypeError as e:
             logger.error('Unable to know which IdP to use')
             return HttpResponse(text_type(e))
@@ -200,7 +215,9 @@ def login(request,
                 return HttpResponse(text_type(e))
             session_id, request_xml = client.create_authn_request(
                 location,
-                binding=binding)
+                binding=binding,
+                sign_alg=sigalg,
+                digest_alg=digalg)
             try:
                 if PY3:
                     saml_request = base64.b64encode(binary_type(request_xml, 'UTF-8'))
@@ -222,7 +239,7 @@ def login(request,
             try:
                 session_id, result = client.prepare_for_authenticate(
                     entityid=selected_idp, relay_state=came_from,
-                    binding=binding)
+                    binding=binding, sign_alg=sigalg, digest_alg=digalg)
             except TypeError as e:
                 logger.error('Unable to know which IdP to use')
                 return HttpResponse(text_type(e))
