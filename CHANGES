@@ -1,9 +1,19 @@
 Changes
 =======
 
-UNRELEASED
+0.17.2 (2018-08-29)
+----------
+- Upgraded pysaml2 dependency to version 4.6.0 which fixes security issue.
+
+Thanks to plumdog
+
+0.17.1 (2018-07-16)
 ----------
 - A 403 (permission denied) is now raised if a SAMLResponse is replayed, instead of 500.
+- Dropped support for Python 3.3
+- Upgraded pysaml2 dependency to version 4.5.0
+
+Thanks to francoisfreitag, mhindery, vkurup, peppelinux
 
 0.16.11 (2017-12-25)
 ----------
