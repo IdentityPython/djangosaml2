@@ -203,7 +203,7 @@ def login(request,
                 binding=binding)
             try:
                 if PY3:
-                    saml_request = base64.b64encode(binary_type(request_xml, 'UTF-8'))
+                    saml_request = base64.b64encode(binary_type(request_xml, 'UTF-8')).decode('utf-8')
                 else:
                     saml_request = base64.b64encode(binary_type(request_xml))
 
