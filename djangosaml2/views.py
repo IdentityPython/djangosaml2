@@ -458,7 +458,17 @@ def do_logout_service(request, data, binding, config_loader_path=None, next_page
                 relay_state=data.get('RelayState', ''))
             state.sync()
             auth.logout(request)
-            return HttpResponseRedirect(get_location(http_info))
+            if (
+                http_info.get('method', 'GET') == 'POST' and
+                'data' in http_info and
+                ('Content-type', 'text/html') in http_info.get('headers', [])
+            ):
+                # need to send back to the IDP a signed POST response with user session
+                # return HTML form content to browser with auto form validation
+                # to finally send request to the IDP
+                return HttpResponse(http_info['data'])
+            else:
+                return HttpResponseRedirect(get_location(http_info))
     else:
         logger.error('No SAMLResponse or SAMLRequest parameter found')
         raise Http404('No SAMLResponse or SAMLRequest parameter found')
