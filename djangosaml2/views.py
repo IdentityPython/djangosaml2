@@ -32,7 +32,15 @@ from django.http import HttpResponseServerError  # 50x
 from django.views.decorators.http import require_POST
 from django.shortcuts import render
 from django.template import TemplateDoesNotExist
-from django.utils.six import text_type, binary_type, PY3
+
+try:
+    from django.utils.six import text_type, binary_type, PY3
+except ImportError:
+    import sys
+    PY3 = sys.version_info[0] == 3
+    text_type = str
+    binary_type = bytes
+
 from django.views.decorators.csrf import csrf_exempt
 
 from saml2 import BINDING_HTTP_REDIRECT, BINDING_HTTP_POST
