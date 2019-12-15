@@ -49,6 +49,7 @@ from saml2.xmldsig import SIG_RSA_SHA1, SIG_RSA_SHA256  # support for SHA1 is re
 
 from djangosaml2.cache import IdentityCache, OutstandingQueriesCache
 from djangosaml2.cache import StateCache
+from djangosaml2.exceptions import IdPConfigurationMissing
 from djangosaml2.conf import get_config
 from djangosaml2.overrides import Saml2Client
 from djangosaml2.signals import post_authenticated
@@ -144,7 +145,13 @@ def login(request,
                 'available_idps': idps.items(),
                 'came_from': came_from,
                 })
-
+    else:
+        # is the first one, otherwise next logger message will print None
+        if not idps:
+            raise IdPConfigurationMissing(('IdP configuration is missing or '
+                                           'its metadata is expired.'))
+        selected_idp = list(idps.keys())[0]
+    
     # choose a binding to try first
     sign_requests = getattr(conf, '_sp_authn_requests_signed', False)
     binding = BINDING_HTTP_POST if sign_requests else BINDING_HTTP_REDIRECT
