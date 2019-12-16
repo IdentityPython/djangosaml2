@@ -144,6 +144,13 @@ def login(request,
     selected_idp = request.GET.get('idp', None)
     conf = get_config(config_loader_path, request)
 
+    kwargs = {}
+    # pysaml needs a string otherwise: "cannot serialize True (type bool)"
+    if getattr(conf, '_sp_force_authn'):
+        kwargs['force_authn'] = "true"
+    if getattr(conf, '_sp_allow_create', "false"):
+        kwargs['allow_create'] = "true"
+
     # is a embedded wayf needed?
     idps = available_idps(conf)
     if selected_idp is None and len(idps) > 1:
@@ -192,7 +199,7 @@ def login(request,
             session_id, result = client.prepare_for_authenticate(
                 entityid=selected_idp, relay_state=came_from,
                 binding=binding, sign=False, sigalg=sigalg,
-                nsprefix=nsprefix)
+                nsprefix=nsprefix, **kwargs)
         except TypeError as e:
             logger.error('Unable to know which IdP to use')
             return HttpResponse(text_type(e))
@@ -208,7 +215,8 @@ def login(request,
                 return HttpResponse(text_type(e))
             session_id, request_xml = client.create_authn_request(
                 location,
-                binding=binding)
+                binding=binding,
+                **kwargs)
             try:
                 if PY3:
                     saml_request = base64.b64encode(binary_type(request_xml, 'UTF-8')).decode('utf-8')
