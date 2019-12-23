@@ -192,7 +192,13 @@ We will see a typical configuration for protecting a Django project::
                      saml2.BINDING_HTTP_POST),
                     ],
                 },
-
+             # Mandates that the identity provider MUST authenticate the
+             # presenter directly rather than rely on a previous security context.
+            'force_authn': False, 
+            
+             # Enable AllowCreate in NameIDPolicy.
+            'name_id_format_allow_create': False,
+            
              # attributes that this project need to identify a user
             'required_attributes': ['uid'],
 
