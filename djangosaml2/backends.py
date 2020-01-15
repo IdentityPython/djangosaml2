@@ -89,7 +89,9 @@ class Saml2Backend(ModelBackend):
             else:
                 logger.error('The nameid is not available. Cannot find user without a nameid.')
         else:
-            saml_user = self.get_attribute_value(django_user_main_attribute, attributes, attribute_mapping)
+            saml_user = self.get_attribute_value(django_user_main_attribute,
+                                                 attributes,
+                                                 attribute_mapping)
 
         if saml_user is None:
             logger.error('Could not find saml_user value')
@@ -111,7 +113,11 @@ class Saml2Backend(ModelBackend):
         logger.debug('attribute_mapping: %s', attribute_mapping)
         for saml_attr, django_fields in attribute_mapping.items():
             if django_field in django_fields and saml_attr in attributes:
-                saml_user = attributes[saml_attr][0]
+                saml_user = attributes.get('saml_attr', [None])[0]
+                if not saml_user:
+                    logger.error('attributes[saml_attr] attribute '
+                                 'value is missing. Probably the user '
+                                 'session is expired.')
         return saml_user
 
     def is_authorized(self, attributes, attribute_mapping):
