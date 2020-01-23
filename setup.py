@@ -31,7 +31,7 @@ if sys.version_info < (3, 4):
 
 setup(
     name='djangosaml2',
-    version='0.16.11',
+    version='0.17.2',
     description='pysaml2 integration for Django',
     long_description='\n\n'.join([read('README.rst'), read('CHANGES')]),
     classifiers=[
@@ -49,7 +49,6 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
@@ -71,8 +70,7 @@ setup(
     install_requires=[
         'defusedxml>=0.4.1',
         'Django>=1.8',
-        'enum34;python_version > "3" and python_version < "3.4"',
-        'pysaml2==4.4.0',
+        'pysaml2>=4.6.0',
         ],
     extras_require=extra,
     )

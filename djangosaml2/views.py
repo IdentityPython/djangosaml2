@@ -16,11 +16,6 @@
 import base64
 import logging
 
-try:
-    from xml.etree import ElementTree
-except ImportError:
-    from elementtree import ElementTree
-
 from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.decorators import login_required
@@ -46,7 +41,10 @@ from saml2.metadata import entity_descriptor
 from saml2.ident import code, decode
 from saml2.sigver import MissingKey
 from saml2.s_utils import UnsupportedBinding
-from saml2.response import StatusError, StatusAuthnFailed, SignatureError, StatusRequestDenied
+from saml2.response import (
+    StatusError, StatusAuthnFailed, SignatureError, StatusRequestDenied,
+    UnsolicitedResponse,
+)
 from saml2.validate import ResponseLifetimeExceed, ToEarly
 # support for SHA1 is required by spec
 from saml2.xmldsig import SIG_RSA_SHA1, SIG_RSA_SHA256, DIGEST_SHA256, DIGEST_SHA1
@@ -199,7 +197,8 @@ def login(request,
         try:
             session_id, result = client.prepare_for_authenticate(
                 entityid=selected_idp, relay_state=came_from,
-                binding=binding, sign=False, sign_alg=sigalg, digest_alg=digalg)
+                binding=binding, sign=False, sign_alg=sigalg, digest_alg=digalg,
+                nsprefix=nsprefix)
         except TypeError as e:
             logger.error('Unable to know which IdP to use')
             return HttpResponse(text_type(e))
@@ -303,6 +302,9 @@ def assertion_consumer_service(request,
         return fail_acs_response(request)
     except MissingKey:
         logger.exception("SAML Identity Provider is not configured correctly: certificate key is missing!")
+        return fail_acs_response(request)
+    except UnsolicitedResponse:
+        logger.exception("Received SAMLResponse when no request has been made.")
         return fail_acs_response(request)
 
     if response is None:
@@ -497,7 +499,7 @@ def metadata(request, config_loader_path=None, valid_for=None):
                         content_type="text/xml; charset=utf8")
 
 
-def register_namespace_prefixes():
+def get_namespace_prefixes():
     from saml2 import md, saml, samlp
     try:
         from saml2 import xmlenc
@@ -505,16 +507,8 @@ def register_namespace_prefixes():
     except ImportError:
         import xmlenc
         import xmldsig
-    prefixes = (('saml', saml.NAMESPACE),
-                ('samlp', samlp.NAMESPACE),
-                ('md', md.NAMESPACE),
-                ('ds', xmldsig.NAMESPACE),
-                ('xenc', xmlenc.NAMESPACE))
-    if hasattr(ElementTree, 'register_namespace'):
-        for prefix, namespace in prefixes:
-            ElementTree.register_namespace(prefix, namespace)
-    else:
-        for prefix, namespace in prefixes:
-            ElementTree._namespace_map[namespace] = prefix
-
-register_namespace_prefixes()
+    return {'saml': saml.NAMESPACE,
+            'samlp': samlp.NAMESPACE,
+            'md': md.NAMESPACE,
+            'ds': xmldsig.NAMESPACE,
+            'xenc': xmlenc.NAMESPACE}

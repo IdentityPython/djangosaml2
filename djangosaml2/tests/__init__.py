@@ -217,8 +217,6 @@ class SAML2Tests(TestCase):
             metadata_file='remote_metadata_one_idp.xml',
         )
 
-        self.init_cookies()
-
         # session_id should start with a letter since it is a NCName
         session_id = "a0123456789abcdef0123456789abcdef"
         came_from = '/another-view/'
@@ -258,6 +256,37 @@ class SAML2Tests(TestCase):
         # as the RelayState is empty we have redirect to LOGIN_REDIRECT_URL
         self.assertEqual(url.path, settings.LOGIN_REDIRECT_URL)
         self.assertEqual(force_text(new_user.id), self.client.session[SESSION_KEY])
+
+    def test_assertion_consumer_service_no_session(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host='sp.example.com',
+            idp_hosts=['idp.example.com'],
+            metadata_file='remote_metadata_one_idp.xml',
+        )
+
+        # session_id should start with a letter since it is a NCName
+        session_id = "a0123456789abcdef0123456789abcdef"
+        came_from = '/another-view/'
+        self.add_outstanding_query(session_id, came_from)
+
+        # Authentication is confirmed.
+        saml_response = auth_response(session_id, 'student')
+        response = self.client.post(reverse('saml2_acs'), {
+            'SAMLResponse': self.b64_for_post(saml_response),
+            'RelayState': came_from,
+        })
+        self.assertEqual(response.status_code, 302)
+        location = response['Location']
+        url = urlparse(location)
+        self.assertEqual(url.path, came_from)
+
+        # Session should no longer be in outstanding queries.
+        saml_response = auth_response(session_id, 'student')
+        response = self.client.post(reverse('saml2_acs'), {
+            'SAMLResponse': self.b64_for_post(saml_response),
+            'RelayState': came_from,
+        })
+        self.assertEqual(response.status_code, 403)
 
     def test_missing_param_to_assertion_consumer_service_request(self):
         # Send request without SAML2Response parameter
