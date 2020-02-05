@@ -147,9 +147,9 @@ def login(request,
 
     kwargs = {}
     # pysaml needs a string otherwise: "cannot serialize True (type bool)"
-    if getattr(conf, '_sp_force_authn'):
+    if getattr(conf, '_sp_force_authn', False):
         kwargs['force_authn'] = "true"
-    if getattr(conf, '_sp_allow_create', "false"):
+    if getattr(conf, '_sp_allow_create', False):
         kwargs['allow_create'] = "true"
 
     # is a embedded wayf needed?
@@ -165,7 +165,8 @@ def login(request,
         if not idps:
             raise IdPConfigurationMissing(('IdP configuration is missing or '
                                            'its metadata is expired.'))
-        selected_idp = list(idps.keys())[0]
+        if selected_idp is None:
+            selected_idp = list(idps.keys())[0]
     
     # choose a binding to try first
     sign_requests = getattr(conf, '_sp_authn_requests_signed', False)
