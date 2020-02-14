@@ -1,5 +1,13 @@
 Changes
 =======
+0.18.0 (2020-02-14)
+----------
+- Django 3.0 support. Thanks to OskarPersson
+- forceauthn and allowcreate support. Thanks to peppelinux
+- Dropped support for Python 3.4
+- Also thanks to WebSpider, mhindery, DylannCordel, habi3000 for various fixes and improvements
+
+Thanks to plumdog
 
 0.17.2 (2018-08-29)
 ----------
