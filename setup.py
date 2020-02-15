@@ -31,7 +31,7 @@ if sys.version_info < (3, 4):
 
 setup(
     name='djangosaml2',
-    version='0.18.0',
+    version='0.18.1',
     description='pysaml2 integration for Django',
     long_description=read('README.rst'),
     classifiers=[
