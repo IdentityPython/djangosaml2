@@ -18,10 +18,9 @@ from importlib import import_module
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-
 from saml2.config import SPConfig
 
-from djangosaml2.utils import get_custom_setting
+from .utils import get_custom_setting
 
 
 def get_config_loader(path, request=None):

@@ -21,7 +21,7 @@ from django.contrib.auth.backends import ModelBackend
 from django.core.exceptions import (ImproperlyConfigured,
                                     MultipleObjectsReturned)
 
-from djangosaml2.signals import pre_user_save
+from .signals import pre_user_save
 
 logger = logging.getLogger('djangosaml2')
 
