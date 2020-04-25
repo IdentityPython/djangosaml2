@@ -326,7 +326,7 @@ this behaviour by specifying the path to your own error handler in the settings:
 
 This should be a view which takes a request, optional exception which occured
 and status code, and returns a response to serve the user. E.g. The default
-implementation looks like this:
+implementation looks like this::
 
   def template_failure(request, exception=None, **kwargs):
     """ Renders a simple template with an error message. """
