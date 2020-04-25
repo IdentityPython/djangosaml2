@@ -3,7 +3,6 @@
 # This module defines a set of useful ACS failure functions that are used to
 # produce an output suitable for end user in case of SAML failure.
 #
-from __future__ import unicode_literals
 
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
