@@ -207,10 +207,7 @@ def login(request,
                 binding=binding,
                 **kwargs)
             try:
-                if PY3:
-                    saml_request = base64.b64encode(bytes(request_xml, 'UTF-8')).decode('utf-8')
-                else:
-                    saml_request = base64.b64encode(bytes(request_xml))
+                saml_request = base64.b64encode(bytes(request_xml, 'UTF-8')).decode('utf-8')
 
                 http_response = render(request, post_binding_form_template, {
                     'target_url': location,
