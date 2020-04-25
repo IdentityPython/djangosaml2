@@ -27,8 +27,8 @@ logger = logging.getLogger('djangosaml2')
 
 
 def get_model(model_path):
+    from django.apps import apps
     try:
-        from django.apps import apps
         return apps.get_model(model_path)
     except LookupError:
         raise ImproperlyConfigured("SAML_USER_MODEL refers to model '%s' that has not been installed" % model_path)
