@@ -25,7 +25,7 @@ class DjangoSessionCacheAdapter(dict):
         self.session = django_session
         self.key = self.key_prefix + key_suffix
 
-        super(DjangoSessionCacheAdapter, self).__init__(self._get_objects())
+        super().__init__(self._get_objects())
 
     def _get_objects(self):
         return self.session.get(self.key, {})
@@ -37,9 +37,9 @@ class DjangoSessionCacheAdapter(dict):
         # Changes in inner objects do not cause session invalidation
         # https://docs.djangoproject.com/en/1.9/topics/http/sessions/#when-sessions-are-saved
 
-        #add objects to session
+        # add objects to session
         self._set_objects(dict(self))
-        #invalidate session
+        # invalidate session
         self.session.modified = True
 
 
@@ -49,8 +49,7 @@ class OutstandingQueriesCache(object):
     """
 
     def __init__(self, django_session):
-        self._db = DjangoSessionCacheAdapter(django_session,
-                                             '_outstanding_queries')
+        self._db = DjangoSessionCacheAdapter(django_session, '_outstanding_queries')
 
     def outstanding_queries(self):
         return self._db._get_objects()
@@ -86,4 +85,4 @@ class StateCache(DjangoSessionCacheAdapter):
     """
 
     def __init__(self, django_session):
-        super(StateCache, self).__init__(django_session, '_state')
+        super().__init__(django_session, '_state')

@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import django
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.utils.http import is_safe_url
 from django.utils.module_loading import import_string
 from saml2.s_utils import UnknownSystemEntity
 
@@ -33,9 +31,12 @@ def available_idps(config, langpref=None):
     for metadata_name, metadata in config.metadata.metadata.items():
         result = metadata.any('idpsso_descriptor', 'single_sign_on_service')
         if result:
-            idps = idps.union(set(result.keys()))
+            idps.update(result.keys())
 
-    return dict([(idp, config.metadata.name(idp, langpref)) for idp in idps])
+    return {
+        idp: config.metadata.name(idp, langpref)
+        for idp in idps
+    }
 
 
 def get_idp_sso_supported_bindings(idp_entity_id=None, config=None):
@@ -49,7 +50,6 @@ def get_idp_sso_supported_bindings(idp_entity_id=None, config=None):
     meta = getattr(config, 'metadata', {})
     # if idp is None, assume only one exists so just use that
     if idp_entity_id is None:
-        # .keys() returns dict_keys in python3.5+
         try:
             idp_entity_id = list(available_idps(config).keys())[0]
         except IndexError:
@@ -80,11 +80,3 @@ def fail_acs_response(request, *args, **kwargs):
     failure_function = import_string(get_custom_setting('SAML_ACS_FAILURE_RESPONSE_FUNCTION',
                                                         'djangosaml2.acs_failures.template_failure'))
     return failure_function(request, *args, **kwargs)
-
-
-def is_safe_url_compat(url, allowed_hosts=None, require_https=False):
-    if django.VERSION >= (1, 11):
-        return is_safe_url(url, allowed_hosts=allowed_hosts, require_https=require_https)
-    assert len(allowed_hosts) == 1
-    host = allowed_hosts.pop()
-    return is_safe_url(url, host=host)

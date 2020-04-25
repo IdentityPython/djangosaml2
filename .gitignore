@@ -4,3 +4,11 @@
 *.sqp
 build/
 dist/
+_build/
+.pytest_cache
+.env
+env/
+venv
+tags
+.idea/
+.vscode/

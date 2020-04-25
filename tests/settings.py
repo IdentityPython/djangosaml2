@@ -46,9 +46,6 @@ MIDDLEWARE = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
-if django.VERSION < (1, 10):
-    MIDDLEWARE_CLASSES = MIDDLEWARE
-
 ROOT_URLCONF = 'testprofiles.urls'
 
 TEMPLATES = [

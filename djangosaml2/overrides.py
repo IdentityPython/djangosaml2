@@ -21,4 +21,4 @@ class Saml2Client(saml2.client.Saml2Client):
             except AttributeError:
                 logger.warning('SAML_LOGOUT_REQUEST_PREFERRED_BINDING setting is'
                     ' not defined. Default binding will be used.')
-        return super(Saml2Client, self).do_logout(*args, **kwargs)
+        return super().do_logout(*args, **kwargs)
