@@ -328,9 +328,9 @@ This should be a view which takes a request, optional exception which occured
 and status code, and returns a response to serve the user. E.g. The default
 implementation looks like this:
 
-    def template_failure(request, exception=None, **kwargs):
-        """ Renders a simple template with an error message. """
-        return render(request, 'djangosaml2/login_error.html', {'exception': exception}, status=kwargs.get('status', 403))
+  def template_failure(request, exception=None, **kwargs):
+    """ Renders a simple template with an error message. """
+    return render(request, 'djangosaml2/login_error.html', {'exception': exception}, status=kwargs.get('status', 403))
 
 
 User attributes
