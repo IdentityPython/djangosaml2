@@ -5,18 +5,9 @@
 #
 from __future__ import unicode_literals
 
-from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
 
 
-def template_failure(request, status=403, **kwargs):
-    """ Renders a SAML-specific template with general authentication error description. """
-    return render(request, 'djangosaml2/login_error.html', status=status)
-
-
-def exception_failure(request, exc_class=PermissionDenied, **kwargs):
-    """ Rather than using a custom SAML specific template that is rendered on failure,
-    this makes use of a standard exception handling machinery present in Django
-    and thus ends up rendering a project-wide error page for Permission Denied exceptions.
-    """
-    raise exc_class
+def template_failure(request, exception=None, **kwargs):
+    """ Renders a simple template with an error message. """
+    return render(request, 'djangosaml2/login_error.html', {'exception': exception}, status=kwargs.get('status', 403))
