@@ -63,5 +63,4 @@ setup(
         'Django>=2.2',
         'pysaml2>=4.6.0',
         ],
-    extras_require=[],
     )
