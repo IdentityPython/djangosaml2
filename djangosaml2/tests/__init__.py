@@ -86,6 +86,7 @@ class SAML2Tests(TestCase):
 
             return xml_string
 
+        import ipdb; ipdb.set_trace()
         self.assertEqual(remove_variable_attributes(real_xml),
                          remove_variable_attributes(expected_xmls))
 
