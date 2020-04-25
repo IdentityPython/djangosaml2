@@ -1,0 +1,35 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Python package
+
+on:
+  push:
+    branches: [ master, github-actions ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8]
+        django-version: ["2.2", "3.0", "master"]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies and testing utilities
+      run: |
+        sudo apt-get update && sudo apt-get install xmlsec1
+        python -m pip install --upgrade pip tox rstcheck setuptools codecov
+    - name: Readme check
+      if: ${{ matrix.python-version }} == 3.8 && ${{ matrix.django-version }} == "3.0"
+      run: rstcheck README.rst
+    - name: Tests
+      run: tox -e py${{ matrix.python-version }}-django${{ matrix.django-version }}
