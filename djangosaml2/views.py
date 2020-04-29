@@ -29,6 +29,7 @@ from django.template import TemplateDoesNotExist
 from django.utils.http import is_safe_url
 from django.views.decorators.csrf import csrf_exempt
 from saml2 import BINDING_HTTP_REDIRECT, BINDING_HTTP_POST
+from django.views.decorators.http import require_POST
 from saml2.client_base import LogoutError
 from saml2.metadata import entity_descriptor
 from saml2.ident import code, decode
