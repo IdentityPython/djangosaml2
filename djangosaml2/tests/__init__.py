@@ -16,11 +16,9 @@
 
 import base64
 import datetime
-import mock
 import re
 import sys
-
-from unittest import skip
+from unittest import mock, skip
 
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY, get_user_model
@@ -29,16 +27,17 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.template import Context, Template
 from django.test import TestCase
 from django.test.client import RequestFactory
+from saml2.config import SPConfig
+from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
+
 from djangosaml2 import views
 from djangosaml2.cache import OutstandingQueriesCache
 from djangosaml2.conf import get_config
 from djangosaml2.signals import post_authenticated
 from djangosaml2.tests import conf
-from djangosaml2.tests.utils import SAMLPostFormParser
 from djangosaml2.tests.auth_response import auth_response
+from djangosaml2.tests.utils import SAMLPostFormParser
 from djangosaml2.views import finish_logout
-from saml2.config import SPConfig
-from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
 
 try:
     from django.urls import reverse
