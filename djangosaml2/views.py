@@ -48,7 +48,7 @@ from .cache import IdentityCache, OutstandingQueriesCache, StateCache
 from .conf import get_config
 from .exceptions import IdPConfigurationMissing
 from .overrides import Saml2Client
-from .utils import (available_idps, fail_acs_response, get_custom_setting,
+from .utils import (available_idps, get_custom_setting,
                     get_idp_sso_supported_bindings, get_location,
                     validate_referral_url)
 
@@ -269,6 +269,18 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
         though some implementations may instead register their own subclasses of Saml2Backend.
     """
 
+    def handle_acs_failure(self, request, exception=None, status=403, **kwargs):
+        """ Error handler if the login attempt fails. Override this to customize the error response.
+        """
+
+        # Backwards compatibility: if a custom setting was defined, use that one
+        custom_failure_function = get_custom_setting('SAML_ACS_FAILURE_RESPONSE_FUNCTION')
+        if custom_failure_function:
+            failure_function = custom_failure_function if callable(custom_failure_function) else import_string(custom_failure_function)
+            return failure_function(request, exception, status, **kwargs)
+
+        return render(request, 'djangosaml2/login_error.html', {'exception': exception}, status=status)
+
     def post(self, request, attribute_mapping=None, create_unknown_user=None):
         """ SAML Authorization Response endpoint
         """
@@ -317,10 +329,10 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
             logger.exception("Received SAMLResponse when no request has been made.")
 
         if _exception:
-            return fail_acs_response(request, exception=_exception)
+            return self.handle_acs_failure(request, exception=_exception)
         elif response is None:
             logger.warning("Invalid SAML Assertion received (unknown error).")
-            return fail_acs_response(request, status=400, exception=SuspiciousOperation('Unknown SAML2 error'))
+            return self.handle_acs_failure(request, status=400, exception=SuspiciousOperation('Unknown SAML2 error'))
 
         session_id = response.session_id()
         oq_cache.delete(session_id)
@@ -340,7 +352,7 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
                                  create_unknown_user=create_unknown_user)
         if user is None:
             logger.warning("Could not authenticate user received in SAML Assertion. Session info: %s", session_info)
-            return fail_acs_response(request, exception=PermissionDenied('No user could be authenticated.'))
+            return self.handle_acs_failure(request, exception=PermissionDenied('No user could be authenticated.'))
 
         auth.login(self.request, user)
         _set_subject_id(request.saml_session, session_info['name_id'])

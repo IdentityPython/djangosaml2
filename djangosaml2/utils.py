@@ -76,19 +76,6 @@ def get_location(http_info):
         return http_info['url']
 
 
-def fail_acs_response(request, *args, **kwargs):
-    """ Serves as a common mechanism for ending ACS in case of any SAML related failure.
-    Handling can be configured by setting the SAML_ACS_FAILURE_RESPONSE_FUNCTION as
-    suitable for the project.
-
-    The default behavior uses SAML specific template that is rendered on any ACS error,
-    but this can be simply changed so that PermissionDenied exception is raised instead.
-    """
-    failure_function = import_string(get_custom_setting('SAML_ACS_FAILURE_RESPONSE_FUNCTION',
-                                                        'djangosaml2.acs_failures.template_failure'))
-    return failure_function(request, *args, **kwargs)
-
-
 def validate_referral_url(request, url):
     # Ensure the user-originating redirection url is safe.
     # By setting SAML_ALLOWED_HOSTS in settings.py the user may provide a list of "allowed"

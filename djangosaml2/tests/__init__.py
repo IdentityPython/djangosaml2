@@ -39,7 +39,8 @@ from djangosaml2.utils import (get_idp_sso_supported_bindings,
                                get_session_id_from_saml2,
                                get_subject_id_from_saml2,
                                saml2_from_httpredirect_request)
-from djangosaml2.views import finish_logout
+from djangosaml2.views import (EchoAttributesView, _set_subject_id,
+                               finish_logout)
 from saml2.config import SPConfig
 from saml2.s_utils import decode_base64_and_inflate, deflate_and_base64_encode
 
@@ -94,9 +95,6 @@ class SAML2Tests(TestCase):
                           came_from)
         self.saml_session.save()
         self.client.cookies[settings.SESSION_COOKIE_NAME] = self.saml_session.session_key
-
-    def render_template(self, text):
-        return Template(text).render(Context())
 
     def b64_for_post(self, xml_text, encoding='utf-8'):
         return base64.b64encode(xml_text.encode(encoding)).decode('ascii')
@@ -406,6 +404,47 @@ class SAML2Tests(TestCase):
         self.assertEqual(response.status_code, 302)
         return subject_id
 
+    def test_echo_view_no_saml_session(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host='sp.example.com',
+            idp_hosts=['idp.example.com'],
+            metadata_file='remote_metadata_one_idp.xml',
+        )
+        self.do_login()
+
+        request = RequestFactory().get('/bar/foo')
+        request.COOKIES = self.client.cookies
+        request.user = User.objects.last()
+
+        middleware = SamlSessionMiddleware()
+        middleware.process_request(request)
+
+        response = EchoAttributesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode(), 'No active SAML identity found. Are you sure you have logged in via SAML?')
+
+    def test_echo_view_success(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host='sp.example.com',
+            idp_hosts=['idp.example.com'],
+            metadata_file='remote_metadata_one_idp.xml',
+        )
+        self.do_login()
+
+        request = RequestFactory().get('/')
+        request.user = User.objects.last()
+
+        middleware = SamlSessionMiddleware()
+        middleware.process_request(request)
+
+        saml_session_name = getattr(settings, 'SAML_SESSION_COOKIE_NAME', 'saml_session')
+        getattr(request, saml_session_name)['_saml2_subject_id'] = '1f87035b4c1325b296a53d92097e6b3fa36d7e30ee82e3fcb0680d60243c1f03'
+        getattr(request, saml_session_name).save()
+        
+        response = EchoAttributesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('<h1>SAML attributes</h1>', response.content.decode(), 'Echo page not rendered')
+
     def test_logout(self):
         settings.SAML_CONFIG = conf.create_conf(
             sp_host='sp.example.com',
@@ -428,8 +467,7 @@ class SAML2Tests(TestCase):
 
         saml_request = params['SAMLRequest'][0]
 
-        if 'LogoutRequest xmlns' not in decode_base64_and_inflate(saml_request).decode('utf-8'):
-            raise Exception('Not a valid LogoutRequest')
+        self.assertIn('LogoutRequest xmlns', decode_base64_and_inflate(saml_request).decode('utf-8'), 'Not a valid LogoutRequest')
 
     def test_logout_service_local(self):
         settings.SAML_CONFIG = conf.create_conf(
@@ -453,8 +491,8 @@ class SAML2Tests(TestCase):
         self.assertIn('SAMLRequest', params)
 
         saml_request = params['SAMLRequest'][0]
-        if 'LogoutRequest xmlns' not in decode_base64_and_inflate(saml_request).decode('utf-8'):
-            raise Exception('Not a valid LogoutRequest')
+
+        self.assertIn('LogoutRequest xmlns', decode_base64_and_inflate(saml_request).decode('utf-8'), 'Not a valid LogoutRequest')
 
         # now simulate a logout response sent by the idp
         expected_request = """<samlp:LogoutRequest xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="XXXXXXXXXXXXXXXXXXXXXX" Version="2.0" Destination="https://idp.example.com/simplesaml/saml2/idp/SingleLogoutService.php" Reason=""><saml:Issuer Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">http://sp.example.com/saml2/metadata/</saml:Issuer><saml:NameID SPNameQualifier="http://sp.example.com/saml2/metadata/" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">1f87035b4c1325b296a53d92097e6b3fa36d7e30ee82e3fcb0680d60243c1f03</saml:NameID><samlp:SessionIndex>a0123456789abcdef0123456789abcdef</samlp:SessionIndex></samlp:LogoutRequest>"""
@@ -501,8 +539,7 @@ class SAML2Tests(TestCase):
         self.assertIn('SAMLResponse', params)
         saml_response = params['SAMLResponse'][0]
 
-        if 'Response xmlns' not in decode_base64_and_inflate(saml_response).decode('utf-8'):
-            raise Exception('Not a valid Response')
+        self.assertIn('Response xmlns', decode_base64_and_inflate(saml_response).decode('utf-8'), 'Not a valid Response')
 
     def test_incomplete_logout(self):
         settings.SAML_CONFIG = conf.create_conf(sp_host='sp.example.com',
@@ -620,11 +657,8 @@ class ConfTests(TestCase):
 
 class SessionEnabledTestCase(TestCase):
     def get_session(self):
-        if self.client.session:
-            session = self.client.session
-        else:
-            engine = import_module(settings.SESSION_ENGINE)
-            session = engine.SessionStore()
+        engine = import_module(settings.SESSION_ENGINE)
+        session = self.client.session or engine.SessionStore()
         return session
 
     def set_session_cookies(self, session):
