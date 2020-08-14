@@ -30,7 +30,7 @@ class SamlSessionMiddleware(SessionMiddleware):
             return response
         # First check if we need to delete this cookie.
         # The session should be deleted only if the session is entirely empty.
-        if self.cookie_name in request.COOKIES and empty:
+        if not request.user.is_authenticated:
             response.delete_cookie(
                 self.cookie_name,
                 path=settings.SESSION_COOKIE_PATH,
