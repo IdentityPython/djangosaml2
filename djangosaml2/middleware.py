@@ -30,7 +30,7 @@ class SamlSessionMiddleware(SessionMiddleware):
             return response
         # First check if we need to delete this cookie.
         # The session should be deleted only if the session is entirely empty.
-        if not request.user.is_authenticated:
+        if self.cookie_name in request.COOKIES and empty:
             response.delete_cookie(
                 self.cookie_name,
                 path=settings.SESSION_COOKIE_PATH,
@@ -43,11 +43,11 @@ class SamlSessionMiddleware(SessionMiddleware):
                 patch_vary_headers(response, ('Cookie',))
             # relies and the global one
             if (modified or settings.SESSION_SAVE_EVERY_REQUEST) and not empty:
-                if request.session.get_expire_at_browser_close():
+                if request.saml_session.get_expire_at_browser_close():
                     max_age = None
                     expires = None
                 else:
-                    max_age = getattr(request, self.cookie_name).get_expiry_age()
+                    max_age = request.saml_session.get_expiry_age()
                     expires_time = time.time() + max_age
                     expires = http_date(expires_time)
                 # Save the session data and refresh the client cookie.
