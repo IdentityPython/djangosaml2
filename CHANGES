@@ -5,6 +5,10 @@ TBD (TBD)
 -------------------
 - Fixed SuspiciousOperation issue in middleware (Issue #220)
 
+0.40.1 (2020-xx-yy)
+-------------------
+- [BugFix] HTTP-REDIRECT Authn Requests with optional signature now works.
+
 0.40.0 (2020-08-07)
 -------------------
 - Allow a SSO request without any attributes besides the NameID info. Backwards-incompatible changes to allow easier behaviour differentiation, two methods now receive the idp identifier (+ **kwargs were added to introduce possible similar changes in the future with less breaking effect):

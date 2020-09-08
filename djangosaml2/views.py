@@ -115,7 +115,8 @@ def login(request,
     # is True (default value) we will redirect him to the came_from view.
     # Otherwise, we will show an (configurable) authorization error.
     if request.user.is_authenticated:
-        redirect_authenticated_user = getattr(settings, 'SAML_IGNORE_AUTHENTICATED_USERS_ON_LOGIN', True)
+        redirect_authenticated_user = getattr(settings,
+                                              'SAML_IGNORE_AUTHENTICATED_USERS_ON_LOGIN', True)
         if redirect_authenticated_user:
             return HttpResponseRedirect(came_from)
         else:
@@ -197,7 +198,7 @@ def login(request,
                 kwargs["sigalg"] = sig_alg_option_map[sig_alg_option]
             session_id, result = client.prepare_for_authenticate(
                 entityid=selected_idp, relay_state=came_from,
-                binding=binding, sign=False, nsprefix=nsprefix,
+                binding=binding, sign=sign_requests, nsprefix=nsprefix,
                 **kwargs)
         except TypeError as e:
             logger.error('Unable to know which IdP to use')
