@@ -498,7 +498,11 @@ class LogoutView(SPConfigMixin, View):
 
         if 'SAMLResponse' in data:  # we started the logout
             logger.debug('Receiving a logout response from the IdP')
-            response = client.parse_logout_request_response(data['SAMLResponse'], binding)
+            try:
+                response = client.parse_logout_request_response(data['SAMLResponse'], binding)
+            except StatusError as e:
+                response = None
+                logger.warning("Error logging out from remote provider: " + str(e))
             state.sync()
             return finish_logout(request, response)
 
