@@ -561,7 +561,9 @@ def do_logout_service(request, data, binding, config_loader_path=None, next_page
 
 
 def finish_logout(request, response, next_page=None):
-    if response and response.status_ok():
+    if (getattr(settings, 'SAML_IGNORE_LOGOUT_ERRORS', False) or
+            (response and response.status_ok())):
+
         if next_page is None and hasattr(settings, 'LOGOUT_REDIRECT_URL'):
             next_page = settings.LOGOUT_REDIRECT_URL
         logger.debug('Performing django logout with a next_page of %s',

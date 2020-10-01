@@ -140,6 +140,13 @@ For example::
   import saml2
   SAML_LOGOUT_REQUEST_PREFERRED_BINDING = saml2.BINDING_HTTP_POST
 
+Ignore Logout errors
+--------------------
+When logging out, a SAML IDP will return an error on invalid conditions, such as the IDP-side session being expired.
+Use the following setting to ignore these errors and perform a local Django logout nonetheless::
+
+  SAML_IGNORE_LOGOUT_ERRORS = True
+
 Signed Logout Request
 ------------------------
 Idp's like Okta require a signed logout response to validate and logout a user. Here's a sample config with all required SP/IDP settings::
