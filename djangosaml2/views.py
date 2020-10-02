@@ -522,7 +522,7 @@ def do_logout_service(request, data, binding, config_loader_path=None, next_page
             response = client.parse_logout_request_response(data['SAMLResponse'], binding)
         except StatusError as e:
             response = None
-            logger.warn("Error logging out from remote provider: " + str(e))
+            logger.warning("Error logging out from remote provider: " + str(e))
         state.sync()
         return finish_logout(request, response, next_page=next_page)
 
