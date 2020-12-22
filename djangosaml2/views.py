@@ -575,7 +575,7 @@ class MetadataView(SPConfigMixin, View):
     def get(self, request, *args, **kwargs):
         conf = self.get_sp_config(request)
         metadata = entity_descriptor(conf)
-        return HttpResponse(content=str(metadata).encode('utf-8'), content_type="text/xml; charset=utf8")
+        return HttpResponse(content=str(metadata).encode('utf-8'), content_type="text/xml; charset=utf-8")
 
 
 def get_namespace_prefixes():
