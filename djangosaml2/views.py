@@ -28,6 +28,7 @@ from django.template import TemplateDoesNotExist
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+from django.utils.module_loading import import_string
 from saml2 import BINDING_HTTP_POST, BINDING_HTTP_REDIRECT
 from saml2.client_base import LogoutError
 from saml2.config import SPConfig
