@@ -380,7 +380,8 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
                                  create_unknown_user=create_unknown_user)
         if user is None:
             logger.warning("Could not authenticate user received in SAML Assertion. Session info: %s", session_info)
-            return self.handle_acs_failure(request, exception=PermissionDenied('No user could be authenticated.'))
+            return self.handle_acs_failure(request, exception=PermissionDenied('No user could be authenticated.'),
+                                           session_info=session_info)
 
         auth.login(self.request, user)
         _set_subject_id(request.saml_session, session_info['name_id'])
