@@ -510,25 +510,17 @@ https://docs.djangoproject.com/en/dev/topics/auth/customizing/#substituting-a-cu
 
 Sometimes you need to use special logic to update the user object
 depending on the SAML2 attributes and the mapping described above
-is simply not enough. For these cases djangosaml2 provides a Django
-signal that you can listen to. In order to do so you can add the
-following code to your app::
+is simply not enough. For these cases djangosaml2 provides hooks_
+that can be overriden with custom functionality. For example::
 
-  from djangosaml2.signals import pre_user_save
+  from djangosaml2.backends import Saml2Backend
 
-  def custom_update_user(sender=User, instance, attributes, user_modified, **kargs)
-     ...
-     return True  # I modified the user object
+  class MySaml2Backend(Saml2Backend):
+      def save_user(self, user, *args, **kwargs):
+          # Add custom logic here
+          return super().save_user(user, *args, **kwargs)
 
-
-Your handler will receive the user object, the list of SAML attributes
-and a flag telling you if the user is already modified and need
-to be saved after your handler is executed. If your handler
-modifies the user object it should return True. Otherwise it should
-return False. This way djangosaml2 will know if it should save
-the user object so you don't need to do it and no more calls to
-the save method are issued.
-
+.. _hooks: https://github.com/knaperek/djangosaml2/blob/master/djangosaml2/backends.py#L181
 
 IdP setup
 =========
