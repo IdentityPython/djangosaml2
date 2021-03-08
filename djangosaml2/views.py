@@ -430,9 +430,10 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
     def build_relay_state(self) -> str:
         """ The relay state is a URL used to redirect the user to the view where they came from.
         """
+        login_redirect_url = get_custom_setting('LOGIN_REDIRECT_URL', '/')
         default_relay_state = get_custom_setting(
-            'ACS_DEFAULT_REDIRECT_URL', settings.LOGIN_REDIRECT_URL)
-        relay_state = self.request.POST.get('RelayState', '/')
+            'ACS_DEFAULT_REDIRECT_URL', login_redirect_url)
+        relay_state = self.request.POST.get('RelayState', default_relay_state)
         relay_state = self.customize_relay_state(relay_state)
         if not relay_state:
             logger.warning('The RelayState parameter exists but is empty')
