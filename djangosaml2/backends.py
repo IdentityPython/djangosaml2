@@ -140,8 +140,9 @@ class Saml2Backend(ModelBackend):
         if user is not None:
             user = self._update_user(
                 user, attributes, attribute_mapping, force_save=created)
-
-        return user
+        
+        if self.user_can_authenticate(user):
+            return user
 
     def _update_user(self, user, attributes: dict, attribute_mapping: dict, force_save: bool = False):
         """ Update a user with a set of attributes and returns the updated user.
@@ -196,6 +197,14 @@ class Saml2Backend(ModelBackend):
     def is_authorized(self, attributes: dict, attribute_mapping: dict, idp_entityid: str, **kwargs) -> bool:
         """ Hook to allow custom authorization policies based on SAML attributes. True by default. """
         return True
+
+    def user_can_authenticate(self, user) -> bool:
+        """
+        Reject users with is_active=False. Custom user models that don't have
+        that attribute are allowed.
+        """
+        is_active = getattr(user, 'is_active', None)
+        return is_active or is_active is None
 
     def clean_user_main_attribute(self, main_attribute: Any) -> Any:
         """ Hook to clean the extracted user-identifying value. No-op by default. """
