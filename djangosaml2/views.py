@@ -497,7 +497,7 @@ class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
                 'Error Handled - SLO not supported by IDP: {}'.format(exp))
             auth.logout(request)
             state.sync()
-            return HttpResponseRedirect(getattr(settings, 'LOGOUT_REDIRECT_URL', '/'))
+            return self.handle_unsupported_slo_exception(request, exp)
 
         auth.logout(request)
         state.sync()
@@ -532,6 +532,15 @@ class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
         logger.error(
             'Could not logout because there only the HTTP_REDIRECT is supported')
         return HttpResponseServerError('Logout Binding not supported')
+
+    def handle_unsupported_slo_exception(self, request, exception, *args, **kwargs):
+        """ Subclasses may override this method to implement custom logic for
+            handling logout errors. Redirects to LOGOUT_REDIRECT_URL by default.
+
+            For example, a site may want to perform additional logic and redirect
+            users somewhere other than the LOGOUT_REDIRECT_URL.
+        """
+        return HttpResponseRedirect(getattr(settings, 'LOGOUT_REDIRECT_URL', '/'))
 
 
 @method_decorator(csrf_exempt, name='dispatch')
