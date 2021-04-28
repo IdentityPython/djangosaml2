@@ -70,6 +70,13 @@ You can even configure the SAML cookie name as follows::
 
   SAML_SESSION_COOKIE_NAME = 'saml_session'
 
+.. Note::
+
+  djangosaml2 will attempt to set the ``SameSite`` attribute of the SAML session cookie to ``None`` so that it can be
+  used in cross-site requests, but this is only possible with Django 3.1 or higher. If you are experiencing issues with
+  unsolicited responses or cookies not being sent (particularly when using the HTTP-POST binding), consider upgrading
+  to Django 3.1 or higher.
+
 Authentication backend
 ======================
 
