@@ -24,7 +24,7 @@ from django.contrib.auth.views import LogoutView as AuthLogoutView
 from django.core.exceptions import PermissionDenied, SuspiciousOperation
 from django.http import (HttpRequest, HttpResponse, HttpResponseBadRequest,
                          HttpResponseRedirect, HttpResponseServerError)
-from django.shortcuts import render
+from django.shortcuts import render, resolve_url
 from django.template import TemplateDoesNotExist
 from django.urls import reverse
 from django.utils.decorators import method_decorator
@@ -116,7 +116,7 @@ class LoginView(SPConfigMixin, View):
             If the user is already logged in (and if allowed), he will redirect to there immediately.
         '''
 
-        next_path = settings.LOGIN_REDIRECT_URL
+        next_path = resolve_url(settings.LOGIN_REDIRECT_URL)
         if 'next' in request.GET:
             next_path = request.GET['next']
         elif 'RelayState' in request.GET:
@@ -501,8 +501,8 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
         """ The relay state is a URL used to redirect the user to the view where they came from.
         """
         login_redirect_url = get_custom_setting('LOGIN_REDIRECT_URL', '/')
-        default_relay_state = get_custom_setting(
-            'ACS_DEFAULT_REDIRECT_URL', login_redirect_url)
+        default_relay_state = resolve_url(
+            get_custom_setting('ACS_DEFAULT_REDIRECT_URL', login_redirect_url))
         relay_state = self.request.POST.get('RelayState', default_relay_state)
         relay_state = self.customize_relay_state(relay_state)
         if not relay_state:

@@ -21,6 +21,7 @@ from typing import Optional
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponse, HttpResponseRedirect
+from django.shortcuts import resolve_url
 from django.utils.http import is_safe_url
 from saml2.config import SPConfig
 from saml2.s_utils import UnknownSystemEntity
@@ -91,7 +92,7 @@ def validate_referral_url(request, url):
         getattr(settings, 'SAML_ALLOWED_HOSTS', [request.get_host()]))
 
     if not is_safe_url(url=url, allowed_hosts=saml_allowed_hosts):
-        return settings.LOGIN_REDIRECT_URL
+        return resolve_url(settings.LOGIN_REDIRECT_URL)
     return url
 
 

@@ -167,12 +167,16 @@ class SAML2Tests(TestCase):
             idp_hosts=['idp.example.com'],
             metadata_file='remote_metadata_one_idp.xml',
         )
-        response = self.client.get(
-            reverse('saml2_login') + '?next=http://evil.com')
-        url = urlparse(response['Location'])
-        params = parse_qs(url.query)
 
-        self.assertEqual(params['RelayState'], [settings.LOGIN_REDIRECT_URL, ])
+        for redirect_url in ['/dashboard/', 'testprofiles:dashboard']:
+            with self.subTest(LOGIN_REDIRECT_URL=redirect_url):
+                with override_settings(LOGIN_REDIRECT_URL=redirect_url):
+                    response = self.client.get(
+                        reverse('saml2_login') + '?next=http://evil.com')
+                    url = urlparse(response['Location'])
+                    params = parse_qs(url.query)
+
+                    self.assertEqual(params['RelayState'], ['/dashboard/'])
 
     def test_no_redirect(self):
         """
@@ -186,11 +190,30 @@ class SAML2Tests(TestCase):
             idp_hosts=['idp.example.com'],
             metadata_file='remote_metadata_one_idp.xml',
         )
-        response = self.client.get(reverse('saml2_login') + '?next=')
-        url = urlparse(response['Location'])
-        params = parse_qs(url.query)
 
-        self.assertEqual(params['RelayState'], [settings.LOGIN_REDIRECT_URL, ])
+        for redirect_url in ['/dashboard/', 'testprofiles:dashboard']:
+            with self.subTest(LOGIN_REDIRECT_URL=redirect_url):
+                with override_settings(LOGIN_REDIRECT_URL=redirect_url):
+                    response = self.client.get(reverse('saml2_login') + '?next=')
+                    url = urlparse(response['Location'])
+                    params = parse_qs(url.query)
+
+                    self.assertEqual(params['RelayState'], ['/dashboard/'])
+
+    @override_settings(SAML_IGNORE_AUTHENTICATED_USERS_ON_LOGIN=True)
+    def test_login_already_logged(self):
+        self.client.force_login(User.objects.create(username='user', password='pass'))
+
+        for redirect_url in ['/dashboard/', 'testprofiles:dashboard']:
+            with self.subTest(LOGIN_REDIRECT_URL=redirect_url):
+                with override_settings(LOGIN_REDIRECT_URL=redirect_url):
+                    with self.subTest('no next url'):
+                        response = self.client.get(reverse('saml2_login'))
+                        self.assertRedirects(response, '/dashboard/')
+
+                    with self.subTest('evil next url'):
+                        response = self.client.get(reverse('saml2_login') + '?next=http://evil.com')
+                        self.assertRedirects(response, '/dashboard/')
 
     def test_unknown_idp(self):
         # monkey patch SAML configuration
@@ -277,6 +300,7 @@ class SAML2Tests(TestCase):
         self.assertIn('AuthnRequest xmlns', decode_base64_and_inflate(
             saml_request).decode('utf-8'))
 
+    @override_settings(LOGIN_REDIRECT_URL='testprofiles:dashboard')
     def test_assertion_consumer_service(self):
         # Get initial number of users
         initial_user_count = User.objects.count()
@@ -325,13 +349,35 @@ class SAML2Tests(TestCase):
             'SAMLResponse': self.b64_for_post(saml_response),
             'RelayState': came_from,
         })
-        self.assertEqual(response.status_code, 302)
-        location = response['Location']
 
-        url = urlparse(location)
         # as the RelayState is empty we have redirect to LOGIN_REDIRECT_URL
-        self.assertEqual(url.path, settings.LOGIN_REDIRECT_URL)
+        self.assertRedirects(response, '/dashboard/')
         self.assertEqual(force_text(new_user.id), client.session[SESSION_KEY])
+
+    @override_settings(LOGIN_REDIRECT_URL='testprofiles:dashboard')
+    def test_assertion_consumer_service_default_relay_state(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host='sp.example.com',
+            idp_hosts=['idp.example.com'],
+            metadata_file='remote_metadata_one_idp.xml',
+        )
+
+        new_user = User.objects.create(username='teacher', password='not-used')
+
+        response = self.client.get(reverse('saml2_login'))
+        saml2_req = saml2_from_httpredirect_request(response.url)
+        session_id = get_session_id_from_saml2(saml2_req)
+
+        saml_response = auth_response(session_id, 'teacher')
+        self.add_outstanding_query(session_id, '/')
+        response = self.client.post(reverse('saml2_acs'), {
+            'SAMLResponse': self.b64_for_post(saml_response),
+        })
+        self.assertEqual(response.status_code, 302)
+
+        # The RelayState is missing, redirect to LOGIN_REDIRECT_URL
+        self.assertRedirects(response, '/dashboard/')
+        self.assertEqual(force_text(new_user.id), self.client.session[SESSION_KEY])
 
     def test_assertion_consumer_service_already_logged_in_allowed(self):
         self.client.force_login(User.objects.create(
