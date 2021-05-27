@@ -1,6 +1,48 @@
 Changes
 =======
 
+v1.2.2 (unreleased)
+-------------------
+
+- Resolve LOGIN_REDIRECT_URL @jaap3 (#277)
+
+
+v1.2.1 (2021-05-23)
+-------------------
+
+- Documentation improved
+- unit tests and coverage improved
+- better handling of unknown idps
+
+
+v1.2.0 (2021-05-14)
+-------------------
+
+- Implement IdP Scoping parameter for SPs suggesting an entityID to a proxy @pauldekkers (#272)
+
+
+v1.1.5 (2021-04-29)
+-------------------
+
+- Cast major/minor django VERSION number into float before comparing @lgarvey (#269)
+- Add note to SameSite cookie docs section recommending upgrade to Django >= 3.1 @m6312 (#267)
+
+
+v1.1.4 (2021-04-28)
+-------------------
+
+- fix: samesite cookie configuration fix for django version <3.1
+
+
+v1.1.3 (2021-04-28)
+--------------------
+
+- Add assertion param to backed.authenticate and backend.is_authorized @lucyeun-alation (#128)
+- feat: CI - added django 3.1 and 3.2
+- fix: Samesite cookie value - fixed #266
+- fix: Docs small changes in setup - pysaml2 example conf improved
+
+
 v.1.1.2 (2021-04-11)
 --------------------
 
