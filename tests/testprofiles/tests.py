@@ -338,17 +338,18 @@ class CustomizedBackend(Saml2Backend):
         return attributes.get('is_staff', (None, ))[0] == True and assertion_info.get('assertion_id', None) != None
     
     def clean_attributes(self, attributes: dict, idp_entityid: str, **kwargs) -> dict:
-        ''' Keep only age attribute '''
+        ''' Keep only certain attribute '''
         return {
             'age': attributes.get('age', (None, )),
+            'mail': attributes.get('mail', (None, )),
             'is_staff': attributes.get('is_staff', (None, )),
             'uid': attributes.get('uid', (None, )),
         }
 
     def clean_user_main_attribute(self, main_attribute):
-        ''' Replace all spaces an dashes by underscores '''
+        ''' Partition string on @ and return the first part '''
         if main_attribute:
-            return main_attribute.replace('-', '_').replace(' ', '_')
+            return main_attribute.partition('@')[0]
         return main_attribute
 
 
@@ -380,10 +381,13 @@ class CustomizedSaml2BackendTests(Saml2BackendTests):
 
     def test_clean_attributes(self):
         attributes = {'random': 'dummy', 'value': 123, 'age': '28'}
-        self.assertEqual(self.backend.clean_attributes(attributes, ''), {'age': '28', 'is_staff': (None,), 'uid': (None,)})
-        
+        self.assertEqual(
+            self.backend.clean_attributes(attributes, ''),
+            {'age': '28', 'mail': (None,), 'is_staff': (None,), 'uid': (None,)}
+        )
+
     def test_clean_user_main_attribute(self):
-        self.assertEqual(self.backend.clean_user_main_attribute('va--l__ u -e'), 'va__l___u__e')
+        self.assertEqual(self.backend.clean_user_main_attribute('john@example.com'), 'john')
 
     def test_authenticate(self):
         attribute_mapping = {
@@ -454,3 +458,35 @@ class CustomizedSaml2BackendTests(Saml2BackendTests):
         self.user.refresh_from_db()
         self.assertEqual(self.user.age, '28')
         self.assertEqual(self.user.is_staff, True)
+
+    def test_user_cleaned_main_attribute(self):
+        """
+        In this test the username is taken from the `mail` attribute,
+        but cleaned to remove the @domain part. After fetching and
+        updating the user, the username remains the same.
+        """
+        attribute_mapping = {
+            'mail': ('username',),
+            'cn': ('first_name',),
+            'sn': ('last_name',),
+            'is_staff': ('is_staff', ),
+        }
+        attributes = {
+            'mail': ('john@example.com',),
+            'cn': ('John',),
+            'sn': ('Doe',),
+            'is_staff': (True, ),
+        }
+        assertion_info = {
+            'assertion_id': 'abcdefg12345',
+        }
+        user = self.backend.authenticate(
+            None,
+            session_info={'ava': attributes, 'issuer': 'dummy_entity_id'},
+            attribute_mapping=attribute_mapping,
+            assertion_info=assertion_info,
+        )
+        self.assertEqual(user, self.user)
+
+        self.user.refresh_from_db()
+        self.assertEqual(user.username, 'john')

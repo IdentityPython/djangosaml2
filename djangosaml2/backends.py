@@ -159,6 +159,8 @@ class Saml2Backend(ModelBackend):
                 user = self.save_user(user)
             return user
 
+        # Lookup key
+        user_lookup_key = self._user_lookup_attribute
         has_updated_fields = False
         for saml_attr, django_attrs in attribute_mapping.items():
             attr_value_list = attributes.get(saml_attr)
@@ -168,7 +170,12 @@ class Saml2Backend(ModelBackend):
                 continue
 
             for attr in django_attrs:
-                if hasattr(user, attr):
+                if attr == user_lookup_key:
+                    # Don't update user_lookup_key (e.g. username) (issue #245)
+                    # It was just used to find/create this user and might have
+                    # been changed by `clean_user_main_attribute`
+                    continue
+                elif hasattr(user, attr):
                     user_attr = getattr(user, attr)
                     if callable(user_attr):
                         modified = user_attr(attr_value_list)
