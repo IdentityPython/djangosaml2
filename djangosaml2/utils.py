@@ -82,6 +82,11 @@ def get_location(http_info):
         return http_info['url']
 
 
+def get_fallback_login_redirect_url():
+    login_redirect_url = get_custom_setting('LOGIN_REDIRECT_URL', '/')
+    return resolve_url(get_custom_setting('ACS_DEFAULT_REDIRECT_URL', login_redirect_url))
+
+
 def validate_referral_url(request, url):
     # Ensure the user-originating redirection url is safe.
     # By setting SAML_ALLOWED_HOSTS in settings.py the user may provide a list of "allowed"
@@ -92,7 +97,7 @@ def validate_referral_url(request, url):
         getattr(settings, 'SAML_ALLOWED_HOSTS', [request.get_host()]))
 
     if not is_safe_url(url=url, allowed_hosts=saml_allowed_hosts):
-        return resolve_url(settings.LOGIN_REDIRECT_URL)
+        return get_fallback_login_redirect_url()
     return url
 
 

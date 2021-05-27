@@ -138,8 +138,9 @@ hostnames to be used for the post-login redirect.  In such cases, the setting::
 May be set to a list of allowed post-login redirect hostnames (note, the URL components beyond the hostname
 may be specified by the client - typically with the ?next= parameter.)
 
-In the absence of a `?next=parameter`, the `LOGIN_REDIRECT_URL` setting will be used (assuming the destination hostname
-either matches the output of get_host() or is included in the SAML_ALLOWED_HOSTS setting)
+In the absence of a ``?next=parameter``, the ``ACS_DEFAULT_REDIRECT_URL`` or ``LOGIN_REDIRECT_URL`` setting will
+be used (assuming the destination hostname either matches the output of get_host() or is included in the
+``SAML_ALLOWED_HOSTS`` setting)
 
 Preferred sso binding
 =====================
@@ -312,7 +313,7 @@ authentication::
 
 Particularly useful when you only plan to use
 IdP initiated login and the IdP does not have a configured RelayState
-parameter. The default is ``/``.
+parameter. If not set Django's ``LOGIN_REDIRECT_URL`` or ``/`` will be used.
 
 The other thing you will probably want to configure is the mapping of
 SAML2 user attributes to Django user attributes. By default only the

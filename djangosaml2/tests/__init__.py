@@ -27,14 +27,15 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ImproperlyConfigured
 from django.test import Client, TestCase, override_settings
 from django.test.client import RequestFactory
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils.encoding import force_text
 from djangosaml2 import views
 from djangosaml2.cache import OutstandingQueriesCache
 from djangosaml2.conf import get_config
 from djangosaml2.middleware import SamlSessionMiddleware
 from djangosaml2.tests import conf
-from djangosaml2.utils import (get_idp_sso_supported_bindings,
+from djangosaml2.utils import (get_fallback_login_redirect_url,
+                               get_idp_sso_supported_bindings,
                                get_session_id_from_saml2,
                                get_subject_id_from_saml2,
                                saml2_from_httpredirect_request)
@@ -75,6 +76,23 @@ class UtilsTests(TestCase):
     def test_get_config_missing_function(self):
         with self.assertRaisesMessage(ImproperlyConfigured, 'Module "djangosaml2.tests" does not define a "nonexisting_function" attribute/class'):
             get_config('djangosaml2.tests.nonexisting_function')
+
+    @override_settings(LOGIN_REDIRECT_URL='/accounts/profile/')
+    def test_get_fallback_login_redirect_url(self):
+        self.assertEqual(get_fallback_login_redirect_url(), '/accounts/profile/')
+
+        with override_settings():
+            del settings.LOGIN_REDIRECT_URL
+            # Neither LOGIN_REDIRECT_URL nor ACS_DEFAULT_REDIRECT_URL is configured
+            self.assertEqual(get_fallback_login_redirect_url(), '/')
+
+        with override_settings(ACS_DEFAULT_REDIRECT_URL='testprofiles:dashboard'):
+            # ACS_DEFAULT_REDIRECT_URL is configured, so it is used (and resolved)
+            self.assertEqual(get_fallback_login_redirect_url(), '/dashboard/')
+
+        with override_settings(ACS_DEFAULT_REDIRECT_URL=reverse_lazy('testprofiles:dashboard')):
+            # Lazy urls are resolved
+            self.assertEqual(get_fallback_login_redirect_url(), '/dashboard/')
 
 
 class SAML2Tests(TestCase):
@@ -158,7 +176,7 @@ class SAML2Tests(TestCase):
     def test_login_evil_redirect(self):
         """
         Make sure that if we give an URL other than our own host as the next
-        parameter, it is replaced with the default LOGIN_REDIRECT_URL.
+        parameter, it is replaced with the fallback login redirect url.
         """
 
         # monkey patch SAML configuration
@@ -178,10 +196,19 @@ class SAML2Tests(TestCase):
 
                     self.assertEqual(params['RelayState'], ['/dashboard/'])
 
+            with self.subTest(ACS_DEFAULT_REDIRECT_URL=redirect_url):
+                with override_settings(ACS_DEFAULT_REDIRECT_URL=redirect_url):
+                    response = self.client.get(
+                        reverse('saml2_login') + '?next=http://evil.com')
+                    url = urlparse(response['Location'])
+                    params = parse_qs(url.query)
+
+                    self.assertEqual(params['RelayState'], ['/dashboard/'])
+
     def test_no_redirect(self):
         """
         Make sure that if we give an empty path as the next parameter,
-        it is replaced with the default LOGIN_REDIRECT_URL.
+        it is replaced with the fallback login redirect url.
         """
 
         # monkey patch SAML configuration
@@ -200,6 +227,14 @@ class SAML2Tests(TestCase):
 
                     self.assertEqual(params['RelayState'], ['/dashboard/'])
 
+            with self.subTest(ACS_DEFAULT_REDIRECT_URL=redirect_url):
+                with override_settings(ACS_DEFAULT_REDIRECT_URL=redirect_url):
+                    response = self.client.get(reverse('saml2_login') + '?next=')
+                    url = urlparse(response['Location'])
+                    params = parse_qs(url.query)
+
+                    self.assertEqual(params['RelayState'], ['/dashboard/'])
+
     @override_settings(SAML_IGNORE_AUTHENTICATED_USERS_ON_LOGIN=True)
     def test_login_already_logged(self):
         self.client.force_login(User.objects.create(username='user', password='pass'))
@@ -207,6 +242,16 @@ class SAML2Tests(TestCase):
         for redirect_url in ['/dashboard/', 'testprofiles:dashboard']:
             with self.subTest(LOGIN_REDIRECT_URL=redirect_url):
                 with override_settings(LOGIN_REDIRECT_URL=redirect_url):
+                    with self.subTest('no next url'):
+                        response = self.client.get(reverse('saml2_login'))
+                        self.assertRedirects(response, '/dashboard/')
+
+                    with self.subTest('evil next url'):
+                        response = self.client.get(reverse('saml2_login') + '?next=http://evil.com')
+                        self.assertRedirects(response, '/dashboard/')
+
+            with self.subTest(ACS_DEFAULT_REDIRECT_URL=redirect_url):
+                with override_settings(ACS_DEFAULT_REDIRECT_URL=redirect_url):
                     with self.subTest('no next url'):
                         response = self.client.get(reverse('saml2_login'))
                         self.assertRedirects(response, '/dashboard/')
@@ -300,7 +345,7 @@ class SAML2Tests(TestCase):
         self.assertIn('AuthnRequest xmlns', decode_base64_and_inflate(
             saml_request).decode('utf-8'))
 
-    @override_settings(LOGIN_REDIRECT_URL='testprofiles:dashboard')
+    @override_settings(ACS_DEFAULT_REDIRECT_URL='testprofiles:dashboard')
     def test_assertion_consumer_service(self):
         # Get initial number of users
         initial_user_count = User.objects.count()
@@ -350,11 +395,11 @@ class SAML2Tests(TestCase):
             'RelayState': came_from,
         })
 
-        # as the RelayState is empty we have redirect to LOGIN_REDIRECT_URL
+        # as the RelayState is empty we have redirect to ACS_DEFAULT_REDIRECT_URL
         self.assertRedirects(response, '/dashboard/')
         self.assertEqual(force_text(new_user.id), client.session[SESSION_KEY])
 
-    @override_settings(LOGIN_REDIRECT_URL='testprofiles:dashboard')
+    @override_settings(ACS_DEFAULT_REDIRECT_URL='testprofiles:dashboard')
     def test_assertion_consumer_service_default_relay_state(self):
         settings.SAML_CONFIG = conf.create_conf(
             sp_host='sp.example.com',
@@ -375,7 +420,7 @@ class SAML2Tests(TestCase):
         })
         self.assertEqual(response.status_code, 302)
 
-        # The RelayState is missing, redirect to LOGIN_REDIRECT_URL
+        # The RelayState is missing, redirect to ACS_DEFAULT_REDIRECT_URL
         self.assertRedirects(response, '/dashboard/')
         self.assertEqual(force_text(new_user.id), self.client.session[SESSION_KEY])
 
