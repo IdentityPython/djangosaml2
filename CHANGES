@@ -1,6 +1,12 @@
 Changes
 =======
 
+v1.3.0 (future)
+
+- Add signals
+- Refactoring some classes to facilitate inheritance / customisation
+- Documentation for signals and inheritance / customisation
+
 v1.2.2 (2021-05-27)
 -------------------
 

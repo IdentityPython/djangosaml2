@@ -629,3 +629,267 @@ What about configuring the certificates in a different way, in case we are using
 - You could supply the cert & key as environment variables (base64 encoded) then create the files when the container starts, either in an entry point shell script or in your settings.py file.
 
 - Using `Python Tempfile <https://docs.python.org/3/library/tempfile.html>`_ In the settings create two temp files, then write the content configured in environment variables in them, then use tmpfile.name as key/cert values in pysaml2 configuration.
+
+
+Customisation (signals, inheritance)
+------------------------------------
+
+You have two ways to customize djangosaml2 :
+
+* using django signals
+* using your own classes inheriting from ours (backend, views etc.)
+
+
+Signals
+=======
+
+Django's signals are great to trigger some code execution at some key points of the auth process.
+For more general information on how to use signals, please refer to the
+`django documentation <https://docs.djangoproject.com/en/dev/topics/signals/>`_.
+
+Those signals are provided:
+
+.. list-table:: Title
+   :widths: 25 75
+   :header-rows: 1
+
+   * - Signal name
+     - Description
+   * - **pre_user_save**
+     - sent just before an user is saved when the received set of SSO attributes require an update
+       parameters sent:
+
+       * **user**: the User instance which will be saved
+       * **attributes**: dict of attributes received from SSO
+   * - **post_user_save**
+     - sent just after an user is saved when the received set of SSO attributes require an update
+       parameters sent:
+
+       * **user**: the User instance which will be saved
+       * **attributes**: dict of attributes received from SSO
+   * - **authenticate**
+     - sent when an authentification request is asked to the backend
+
+       * **request**: request received
+       * **is_authorized**:  True/False if request was not authorized
+       * **can_authenticate**: True/False  if user can authenticate
+       * **user**: the User instance authenticated (or None if it's a fail)
+       * **user_created**: True/False if user is newly created
+       * **attributes**: dict of attributes received from SSO (or None if request was invalid)
+
+Usage exemple::
+
+  #myapp.apps.py
+  from django.apps import AppConfig
+  from django.apps import apps
+  from django.conf import settings
+  from django.utils.translation import ugettext_lazy as _
+
+
+  def check_user_activity(sender, user, attributes, request):
+    """
+    (de)activate the user depending on two Keycloak attributes.
+    It must be called **before** authentication is done
+    """
+    temporarily_disabled = attributes.get('temporarilyDisabled', [False])[0]
+    temporarily_disabled = temporarily_disabled in ('true', 'True', True)
+    userEnabled = attributes.get('userEnabled', [True])[0]
+    userEnabled = userEnabled in ('true', 'True', True)
+    is_active = userEnabled and not temporarily_disabled
+    if user.is_active != is_active:
+        user.is_active = is_active
+        user.save()
+
+  def set_email_verified(
+    sender, request, is_authorized, can_authenticate, user, user_created, attributes, **kwargs
+  ):
+    """
+    updates the user's primary email address (managed by allauth)
+    """
+    if not is_authorized or not user:
+      return
+    emailVerified = attributes.get('emailVerified', [True])[0] in ('true', 'True', True)
+
+    emailaddress, created = user.emailaddress_set.model.objects.get_or_create(
+        email=user.email,
+        defaults={'primary': True, 'verified': emailVerified, 'user_id': instance.pk}
+    )
+    if emailaddress.user_id != instance.pk:
+        msg = 'Email %s is already owned by %s and %s claims it. Please fix it in Keycloak' % (
+            user.email, emailaddress.user.username, instance.username
+        )
+        logger.error(msg, exc_info=True)
+    else:
+        if not emailaddress.primary:
+            user.emailaddress_set.filter(primary=True).update(primary=False)
+            emailaddress.primary = True
+            changed_emailaddress = True
+        if emailaddress.verified != emailVerified:
+            emailaddress.verified = emailVerified
+            changed_emailaddress = True
+        if changed_emailaddress:
+            emailaddress.save()
+
+
+  class KeycloakFosmConfig(AppConfig):
+      name = 'keycloak_fosm'
+      verbose_name = _('Keycloak for FOSM')
+
+      def ready(self):
+          from djangosaml2.signals import authenticate
+          from djangosaml2.signals import pre_user_save
+          pre_user_save.connect(check_user_activity)
+          authenticate.connect(set_email_verified)
+
+
+If you want to have a receiver called after an user successfully authenticate, you can also use the
+standard django signal `user_logged_in <https://docs.djangoproject.com/en/dev/ref/contrib/auth/#django.contrib.auth.signals.user_logged_in>`_.
+Used backend is set as an `attribute of the current user <https://github.com/django/django/blob/main/django/contrib/auth/__init__.py#L83>`_,
+allowing you to execute your code only if authentication comes from the Saml2Backend. ex::
+
+  def saml2_user_logged_in_receiver(sender, request, user, **kwargs):
+    backend_path = getattr(user, 'backend')
+    if backend_path != 'djangosaml2.backends.Saml2Backend':
+        return  # nothing to do, user is logged in via an other backend
+    # you specific code here
+
+Inheritance
+===========
+
+Views and Backend classes are designed to be extended to facilitate specific code addition at some
+strategic points.
+
+djangosaml2.backends.Saml2Backend
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To override default Saml2Backend, do not forget to replace 'djangosaml2.backends.Saml2Backend' by
+you own backend in `AUTHENTICATION_BACKENDS`::
+
+  # settings.py
+  AUTHENTICATION_BACKENDS = [
+      # 'djangosaml2.backends.Saml2Backend',
+      'keycloak_fosm.backends.Saml2Backend',
+  ]
+
+lookup_and_set_attributes
+"""""""""""""""""""""""""
+
+Loop over eath saml attributes and call `lookup_and_set_attribute` to set (or not) received
+data on current user.
+Usefull if you need some logic depending on multiple attributes values.::
+
+  class MyOwnBackend(Saml2Backend):
+    def lookup_and_set_attributes(self, user, attributes: dict, attribute_mapping: dict) -> bool:
+      has_updated_fields = super().lookup_and_set_attributes(user, attribute_mapping, attributes)
+      if attributes.get('something', None) == 'magic' and user.username == 'ProcolHarum':
+        user.play('https://www.youtube.com/watch?v=Csa6q9iSJEY')
+      return has_updated_fields
+
+
+lookup_and_set_attribute
+""""""""""""""""""""""""
+
+Get a specific SAML attribute, retrieve it's mapping configuration and set the new data
+on current user.
+Usefull if you need some logic / data processing on a specific attribute but you can not
+override the User method to do it (remember that if you map saml attribute "toto" to
+"something", something can be a callable to do more than just a value assignation.)::
+
+  class MyOwnBackend(Saml2Backend):
+    def lookup_and_set_attribute(self, user, attr, attr_value_list) -> bool:
+      if attr != 'great_songs':
+        return super().lookup_and_set_attribute(user, attr, attr_value_list)
+      if 'Something Magic' in attr_value_list and 'A Whiter Shade of Pale' attr_value_list:
+        a_song = random.choice()
+        if a_song != user.last_listen_song:
+          user.play(a_song)
+          user.last_listen_song = a_song
+          return True
+      return False
+
+
+clean_attributes
+""""""""""""""""
+
+Clean or filter attributes from the SAML response.::
+
+
+  class MyOwnBackend(Saml2Backend):
+    def clean_attributes(self, attributes: dict, idp_entityid: str, **kwargs) -> dict:
+      attributes = super().clean_attributes(attributes, idp_entityid, **kwargs)
+      if idp_entityid != 'jukebox':
+        return attributes
+      if 'great_bands' in attributes:
+        try:
+          attributes['great_bands'].remove('<band you dislike>')
+        except ValueError:
+          pass
+        else:
+          attributes['music_lover_score'] = attributes.get('music_lover_score', 0) - 1
+      return attributes
+
+
+is_authorized
+"""""""""""""
+
+Allow custom authorization policies based on SAML attributes.::
+
+
+  class MyOwnBackend(Saml2Backend):
+    def is_authorized(
+      self,
+      attributes: dict, attribute_mapping: dict,
+      idp_entityid: str, assertion_info: dict, **kwargs
+    ) -> bool:
+      is_authorized = super().is_authorized(attributes, attribute_mapping,
+                                            idp_entityid, assertion_info, **kwargs)
+      if not is_authorized or idp_entityid != 'jukebox':
+        return is_authorized
+      if '<band you dislike>' in attributes['great_bands']:
+          logger.error('Request not authorized: probably a spam bot')
+        return False
+      return is_authorized
+
+
+user_can_authenticate
+"""""""""""""""""""""
+
+Allow custom auth rejection of users.::
+
+
+  class MyOwnBackend(Saml2Backend):
+    def user_can_authenticate(self, user) -> bool:
+      can_authenticate = super().user_can_authenticate(user)
+      if not can_authenticate or idp_entityid != 'jukebox':
+        return can_authenticate
+      return can_authenticate and user.music_lover_score >= 0
+
+
+clean_user_main_attribute
+"""""""""""""""""""""""""
+Allow to clean the extracted user-identifying value.
+
+
+save_user
+"""""""""
+Allow add custom logic around saving a user.::
+
+
+  class MyOwnBackend(Saml2Backend):
+    def save_user(self, user: settings.AUTH_USER_MODEL, *args, **kwargs) -> settings.AUTH_USER_MODEL:
+        is_new_instance = user.pk is None
+        user = super().save_user(user, *args, **kwargs)
+        if is_new_instance:
+          register_music_lover_stats_on_registration(user.music_lover_score)
+        return user
+
+
+djangosaml2.views.LoginView
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+TODO
+
+djangosaml2.views.LogoutView
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+TODO

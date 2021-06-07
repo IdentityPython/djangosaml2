@@ -336,7 +336,7 @@ class CustomizedBackend(Saml2Backend):
     def is_authorized(self, attributes, attribute_mapping, idp_entityid: str, assertion_info, **kwargs):
         ''' Allow only staff users from the IDP '''
         return attributes.get('is_staff', (None, ))[0] == True and assertion_info.get('assertion_id', None) != None
-    
+
     def clean_attributes(self, attributes: dict, idp_entityid: str, **kwargs) -> dict:
         ''' Keep only certain attribute '''
         return {
