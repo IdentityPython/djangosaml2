@@ -349,7 +349,7 @@ class LoginView(SPConfigMixin, View):
                         },
                     })
                 except TemplateDoesNotExist as e:
-                    logger.error(
+                    logger.debug(
                         f'TemplateDoesNotExist: [{self.post_binding_form_template}] - {e}'
                     )
 
