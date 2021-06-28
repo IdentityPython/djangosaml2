@@ -407,6 +407,22 @@ For example::
             user.groups.add(user_group)
             return super().save_user(user, *args, **kwargs)
 
+Keep in mind save_user is only called when there was a reason to save the User model (ie. first login), and it has no access to SAML attributes for authorization. If this is required, it can be achieved by overriding the _update_user::
+
+    from djangosaml2.backends import Saml2Backend
+
+    class ModifiedSaml2Backend(Saml2Backend):
+        def _update_user(self, user, attributes: dict, attribute_mapping: dict, force_save: bool = False):
+            if 'eduPersonEntitlement' in attributes:
+                if 'some-entitlement' in attributes['eduPersonEntitlement']:
+                    user.is_staff = True
+                    force_save = True
+                else:
+                    user.is_staff = False
+                    force_save = True
+             return super()._update_user(user, attributes, attribute_mapping, force_save)
+
+
 .. _hooks: https://github.com/identitypython/djangosaml2/blob/master/djangosaml2/backends.py#L181
 
 
