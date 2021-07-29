@@ -465,6 +465,10 @@ settings.py file under the SAML_CONFIG option. We will see a typical configurati
     # directory with attribute mapping
     'attribute_map_dir': path.join(BASEDIR, 'attribute-maps'),
 
+    # Permits to have attributes not configured in attribute-mappings
+    # otherwise...without OID will be rejected
+    'allow_unknown_attributes': True,
+
     # this block states what services we provide
     'service': {
         # we are just a lonely SP
@@ -525,10 +529,6 @@ settings.py file under the SAML_CONFIG option. We will see a typical configurati
             # Responses, i.e. SAML Responses for which it has not sent
             # a respective SAML Authentication Request.
             'allow_unsolicited': False,
-
-            # Permits to have attributes not configured in attribute-mappings
-            # otherwise...without OID will be rejected
-            'allow_unknown_attributes': True,
 
             # in this section the list of IdPs we talk to are defined
             # This is not mandatory! All the IdP available in the metadata will be considered instead.
