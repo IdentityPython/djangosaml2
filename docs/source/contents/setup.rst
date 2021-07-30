@@ -421,7 +421,7 @@ Keep in mind save_user is only called when there was a reason to save the User m
                 else:
                     user.is_staff = False
                     force_save = True
-             return super()._update_user(user, attributes, attribute_mapping, force_save)
+            return super()._update_user(user, attributes, attribute_mapping, force_save)
 
 .. _hooks: https://github.com/identitypython/djangosaml2/blob/master/djangosaml2/backends.py#L181
 
