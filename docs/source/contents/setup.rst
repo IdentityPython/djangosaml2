@@ -365,7 +365,7 @@ Custom User object::
   class User(AbstractUser):
 
     def process_groups(self, groups):
-      // process list of group names in argument 'groups'
+      # process list of group names in argument 'groups'
       pass;
 
 settings.py::
