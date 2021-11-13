@@ -219,7 +219,7 @@ class Saml2BackendTests(TestCase):
         # User creation does not fail if several fields are required.
         user, created = self.backend.get_or_create_user(self.backend._user_lookup_attribute, 'john@example.org', True, None, None, None, None)
 
-        self.assertEquals(user.email, 'john@example.org')
+        self.assertEqual(user.email, 'john@example.org')
         self.assertIs(user.email_verified, None)
 
         user = self.backend._update_user(user, attributes, attribute_mapping, created)
