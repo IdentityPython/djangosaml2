@@ -14,7 +14,8 @@
 
 import django.dispatch
 
-pre_user_save = django.dispatch.Signal(
-    providing_args=['attributes', 'user_modified'])
-post_authenticated = django.dispatch.Signal(
-    providing_args=['session_info', 'request'])
+pre_user_save = django.dispatch.Signal(providing_args=['user', 'attributes'])
+post_user_save = django.dispatch.Signal(providing_args=['user', 'attributes'])
+authenticate = django.dispatch.Signal(providing_args=[
+    'request', 'is_authorized', 'can_authenticate', 'user', 'user_created', 'attributes'
+])

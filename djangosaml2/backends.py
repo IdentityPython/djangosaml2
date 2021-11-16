@@ -24,6 +24,8 @@ from django.contrib.auth.backends import ModelBackend
 from django.core.exceptions import (ImproperlyConfigured,
                                     MultipleObjectsReturned)
 
+from .signals import authenticate, pre_user_save, post_user_save
+
 
 logger = logging.getLogger('djangosaml2')
 
@@ -123,6 +125,13 @@ class Saml2Backend(ModelBackend):
 
         if not self.is_authorized(attributes, attribute_mapping, idp_entityid, assertion_info):
             logger.error('Request not authorized')
+            authenticate.send(sender=self,
+                            request=request,
+                            is_authorized=False,
+                            can_authenticate=None,
+                            user=None,
+                            user_created=None,
+                            attributes=attributes)
             return None
 
         user_lookup_key, user_lookup_value = self._extract_user_identifier_params(
@@ -141,7 +150,15 @@ class Saml2Backend(ModelBackend):
             user = self._update_user(
                 user, attributes, attribute_mapping, force_save=created)
 
-        if self.user_can_authenticate(user):
+        can_authenticate = self.user_can_authenticate(user)
+        authenticate.send(sender=self,
+                          request=request,
+                          is_authorized=True,
+                          can_authenticate=can_authenticate,
+                          user=user,
+                          user_created=created,
+                          attributes=attributes)
+        if can_authenticate:
             return user
 
     def _update_user(self, user, attributes: dict, attribute_mapping: dict, force_save: bool = False):
@@ -156,11 +173,26 @@ class Saml2Backend(ModelBackend):
         if not attribute_mapping:
             # Always save a brand new user instance
             if user.pk is None:
+                pre_user_save.send(sender=self, user=user, attributes=attributes)
                 user = self.save_user(user)
+                post_user_save.send(sender=self, user=user, attributes=attributes)
             return user
 
         # Lookup key
-        user_lookup_key = self._user_lookup_attribute
+        has_updated_fields = self.lookup_and_set_attributes(user, attributes, attribute_mapping)
+
+        if has_updated_fields or force_save:
+            pre_user_save.send(sender=self, user=user, attributes=attributes)
+            user = self.save_user(user)
+            post_user_save.send(sender=self, user=user, attributes=attributes)
+
+        return user
+
+    # ################################################
+    # Methods to override by end-users in subclasses #
+    # ################################################
+
+    def lookup_and_set_attributes(self, user, attributes: dict, attribute_mapping: dict) -> bool:
         has_updated_fields = False
         for saml_attr, django_attrs in attribute_mapping.items():
             attr_value_list = attributes.get(saml_attr)
@@ -168,34 +200,27 @@ class Saml2Backend(ModelBackend):
                 logger.debug(
                     f'Could not find value for "{saml_attr}", not updating fields "{django_attrs}"')
                 continue
-
             for attr in django_attrs:
-                if attr == user_lookup_key:
-                    # Don't update user_lookup_key (e.g. username) (issue #245)
-                    # It was just used to find/create this user and might have
-                    # been changed by `clean_user_main_attribute`
-                    continue
-                elif hasattr(user, attr):
-                    user_attr = getattr(user, attr)
-                    if callable(user_attr):
-                        modified = user_attr(attr_value_list)
-                    else:
-                        modified = set_attribute(
-                            user, attr, attr_value_list[0])
+                has_updated_fields = self.lookup_and_set_attribute(
+                    user, attr, attr_value_list
+                ) or has_updated_fields
+        return has_updated_fields
 
-                    has_updated_fields = has_updated_fields or modified
-                else:
-                    logger.debug(
-                        f'Could not find attribute "{attr}" on user "{user}"')
-
-        if has_updated_fields or force_save:
-            user = self.save_user(user)
-
-        return user
-
-    # ############################################
-    # Hooks to override by end-users in subclasses
-    # ############################################
+    def lookup_and_set_attribute(self, user, attr, attr_value_list) -> bool:
+        if attr == self._user_lookup_attribute:
+            # Don't update user_lookup_key (e.g. username) (issue #245)
+            # It was just used to find/create this user and might have
+            # been changed by `clean_user_main_attribute`
+            return False
+        elif hasattr(user, attr):
+            user_attr = getattr(user, attr)
+            if callable(user_attr):
+                return user_attr(attr_value_list)
+            else:
+                return set_attribute(user, attr, attr_value_list[0])
+        else:
+            logger.debug(f'Could not find attribute "{attr}" on user "{user}"')
+        return False
 
     def clean_attributes(self, attributes: dict, idp_entityid: str, **kwargs) -> dict:
         """ Hook to clean or filter attributes from the SAML response. No-op by default. """
