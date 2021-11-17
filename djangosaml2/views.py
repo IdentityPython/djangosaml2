@@ -16,6 +16,7 @@
 import base64
 import logging
 import saml2
+from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib import auth
@@ -28,7 +29,6 @@ from django.shortcuts import render
 from django.template import TemplateDoesNotExist
 from django.urls import reverse
 from django.utils.decorators import method_decorator
-from django.utils.http import urlquote
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from django.utils.module_loading import import_string
@@ -208,13 +208,11 @@ class LoginView(SPConfigMixin, View):
                 logger.debug(("A discovery process is needed trough a"
                               "Discovery Service: {}").format(discovery_service))
                 login_url = request.build_absolute_uri(reverse('saml2_login'))
-                login_url = '{0}?next={1}'.format(login_url,
-                                                  urlquote(next_path, safe=''))
+                login_url = '{0}?next={1}'.format(login_url, quote(next_path, safe=''))
                 ds_url = '{0}?entityID={1}&return={2}&returnIDParam=idp'
                 ds_url = ds_url.format(discovery_service,
-                                       urlquote(
-                                           getattr(conf, 'entityid'), safe=''),
-                                       urlquote(login_url, safe=''))
+                                       quote(getattr(conf, 'entityid'), safe=''),
+                                       quote(login_url, safe=''))
                 return HttpResponseRedirect(ds_url)
 
             elif len(configured_idps) > 1:

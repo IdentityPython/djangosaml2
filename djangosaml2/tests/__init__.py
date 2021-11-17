@@ -21,6 +21,7 @@ from importlib import import_module
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
+from django import http
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY, get_user_model
 from django.contrib.auth.models import AnonymousUser
@@ -28,7 +29,6 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import Client, TestCase, override_settings
 from django.test.client import RequestFactory
 from django.urls import reverse, reverse_lazy
-from django.utils.encoding import force_text
 from djangosaml2 import views
 from djangosaml2.cache import OutstandingQueriesCache
 from djangosaml2.conf import get_config
@@ -55,6 +55,15 @@ PY_VERSION = sys.version_info[:2]
 
 def dummy_loader(request):
     return 'dummy_loader'
+
+
+def dummy_get_response(request: http.HttpRequest):
+    """
+    Return a basic HttpResponse.
+
+    Function needed to instantiate SamlSessionMiddleware.
+    """
+    return http.HttpResponse("Session test")
 
 
 non_callable = 'just a string'
@@ -433,7 +442,7 @@ class SAML2Tests(TestCase):
 
         # as the RelayState is empty we have redirect to ACS_DEFAULT_REDIRECT_URL
         self.assertRedirects(response, '/dashboard/')
-        self.assertEqual(force_text(new_user.id), client.session[SESSION_KEY])
+        self.assertEqual(str(new_user.id), client.session[SESSION_KEY])
 
     @override_settings(ACS_DEFAULT_REDIRECT_URL='testprofiles:dashboard')
     def test_assertion_consumer_service_default_relay_state(self):
@@ -458,7 +467,7 @@ class SAML2Tests(TestCase):
 
         # The RelayState is missing, redirect to ACS_DEFAULT_REDIRECT_URL
         self.assertRedirects(response, '/dashboard/')
-        self.assertEqual(force_text(new_user.id), self.client.session[SESSION_KEY])
+        self.assertEqual(str(new_user.id), self.client.session[SESSION_KEY])
 
     def test_assertion_consumer_service_already_logged_in_allowed(self):
         self.client.force_login(User.objects.create(
@@ -566,7 +575,7 @@ class SAML2Tests(TestCase):
         request.COOKIES = self.client.cookies
         request.user = User.objects.last()
 
-        middleware = SamlSessionMiddleware()
+        middleware = SamlSessionMiddleware(dummy_get_response)
         middleware.process_request(request)
 
         response = EchoAttributesView.as_view()(request)
@@ -585,7 +594,7 @@ class SAML2Tests(TestCase):
         request = RequestFactory().get('/')
         request.user = User.objects.last()
 
-        middleware = SamlSessionMiddleware()
+        middleware = SamlSessionMiddleware(dummy_get_response)
         middleware.process_request(request)
 
         saml_session_name = getattr(
@@ -808,7 +817,7 @@ class ConfTests(TestCase):
         config_loader_path = 'djangosaml2.tests.test_config_loader_with_real_conf'
         request = RequestFactory().get('/login/')
         request.user = AnonymousUser()
-        middleware = SamlSessionMiddleware()
+        middleware = SamlSessionMiddleware(dummy_get_response)
         middleware.process_request(request)
 
         saml_session_name = getattr(
@@ -855,7 +864,7 @@ class MiddlewareTests(SessionEnabledTestCase):
             request = RequestFactory().get('/login/')
             request.user = AnonymousUser()
             request.session = session
-            middleware = SamlSessionMiddleware()
+            middleware = SamlSessionMiddleware(dummy_get_response)
             middleware.process_request(request)
 
             saml_session_name = getattr(
@@ -882,7 +891,7 @@ class MiddlewareTests(SessionEnabledTestCase):
             request = RequestFactory().get('/login/')
             request.user = AnonymousUser()
             request.session = session
-            middleware = SamlSessionMiddleware()
+            middleware = SamlSessionMiddleware(dummy_get_response)
             middleware.process_request(request)
 
             saml_session_name = getattr(
