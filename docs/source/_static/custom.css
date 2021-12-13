@@ -1,7 +1,7 @@
 body,
-h1, h2, 
-.rst-content .toctree-wrapper p.caption, 
-h3, h4, h5, h6, 
+h1, h2,
+.rst-content .toctree-wrapper p.caption,
+h3, h4, h5, h6,
 legend{
     font-family: Lato,'Helvetica Neue',Arial,Helvetica,sans-serif;
 }
@@ -10,13 +10,13 @@ legend{
     background: #ffffff;
 }
 
-.wy-side-nav-search>a, 
+.wy-side-nav-search>a,
 .wy-side-nav-search .wy-dropdown>a{
     color: #9b9c9e;
     font-weight: normal;
 }
 
-.wy-menu-vertical header, 
+.wy-menu-vertical header,
 .wy-menu-vertical p.caption{
     color: #fff;
     font-size:85%;
