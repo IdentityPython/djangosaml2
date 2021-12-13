@@ -68,8 +68,4 @@ setup(
         "Django>=2.2,<5",
         "pysaml2>=6.5.1",
     ],
-    tests_require=[
-        # Provides assert_called_once.
-        "mock",
-    ],
 )
