@@ -44,7 +44,7 @@ def available_idps(config: SPConfig, langpref=None) -> dict:
 
     idps = set()
 
-    for metadata_name, metadata in config.metadata.metadata.items():
+    for metadata in config.metadata.metadata.values():
         result = metadata.any("idpsso_descriptor", "single_sign_on_service")
         if result:
             idps.update(result.keys())

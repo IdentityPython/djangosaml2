@@ -200,7 +200,7 @@ class LoginView(SPConfigMixin, View):
 
         try:
             conf = self.get_sp_config(request)
-        except SourceNotFound as excp:  # pragma: no cover
+        except SourceNotFound:  # pragma: no cover
             # this is deprecated and it's here only for the doubts that something
             # would happen the day after I'll remove it! :)
             return self.unknown_idp(request, idp="unknown")
@@ -229,7 +229,7 @@ class LoginView(SPConfigMixin, View):
                 )
                 ds_url = "{}?entityID={}&return={}&returnIDParam=idp".format(
                     discovery_service,
-                    quote(getattr(conf, "entityid"), safe=""),
+                    quote(conf.entityid, safe=""),
                     quote(login_url, safe=""),
                 )
                 return HttpResponseRedirect(ds_url)
@@ -673,7 +673,7 @@ class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
                 "Sorry, I do not know how to logout from several sources. I will logout just from the first one"
             )
 
-        for entityid, logout_info in result.items():
+        for logout_info in result.values():
             if isinstance(logout_info, tuple):
                 binding, http_info = logout_info
                 if binding == saml2.BINDING_HTTP_POST:
