@@ -9,12 +9,12 @@ from django.utils.http import http_date
 from django.contrib.sessions.backends.base import UpdateError
 from django.contrib.sessions.middleware import SessionMiddleware
 
-django_version = float('{}.{}'.format(*VERSION[:2]))
-SAMESITE_NONE = None if django_version < 3.1 else 'None'
+django_version = float("{}.{}".format(*VERSION[:2]))
+SAMESITE_NONE = None if django_version < 3.1 else "None"
 
 
 class SamlSessionMiddleware(SessionMiddleware):
-    cookie_name = getattr(settings, 'SAML_SESSION_COOKIE_NAME', 'saml_session')
+    cookie_name = getattr(settings, "SAML_SESSION_COOKIE_NAME", "saml_session")
 
     def process_request(self, request):
         session_key = request.COOKIES.get(self.cookie_name, None)
@@ -41,10 +41,10 @@ class SamlSessionMiddleware(SessionMiddleware):
                 domain=settings.SESSION_COOKIE_DOMAIN,
                 samesite=SAMESITE_NONE,
             )
-            patch_vary_headers(response, ('Cookie',))
+            patch_vary_headers(response, ("Cookie",))
         else:
             if accessed:
-                patch_vary_headers(response, ('Cookie',))
+                patch_vary_headers(response, ("Cookie",))
             # relies and the global one
             if (modified or settings.SESSION_SAVE_EVERY_REQUEST) and not empty:
                 if request.saml_session.get_expire_at_browser_close():
@@ -69,10 +69,11 @@ class SamlSessionMiddleware(SessionMiddleware):
                         self.cookie_name,
                         request.saml_session.session_key,
                         max_age=max_age,
-                        expires=expires, domain=settings.SESSION_COOKIE_DOMAIN,
+                        expires=expires,
+                        domain=settings.SESSION_COOKIE_DOMAIN,
                         path=settings.SESSION_COOKIE_PATH,
                         secure=settings.SESSION_COOKIE_SECURE or None,
                         httponly=settings.SESSION_COOKIE_HTTPONLY or None,
-                        samesite=SAMESITE_NONE
+                        samesite=SAMESITE_NONE,
                     )
         return response

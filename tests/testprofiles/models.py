@@ -25,7 +25,7 @@ class TestUser(AbstractUser):
         self.first_name = first_name[0]
 
     class Meta:
-        app_label = 'testprofiles'
+        app_label = "testprofiles"
 
 
 class StandaloneUserModel(models.Model):
@@ -33,6 +33,7 @@ class StandaloneUserModel(models.Model):
     Does not inherit from Django's base abstract user and does not define a
     USERNAME_FIELD.
     """
+
     username = models.CharField(max_length=30, unique=True)
 
 
@@ -40,7 +41,7 @@ class RequiredFieldUser(models.Model):
     email = models.EmailField(unique=True)
     email_verified = models.BooleanField()
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
 
     def __repr__(self):
         return self.email

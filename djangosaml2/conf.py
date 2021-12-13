@@ -27,41 +27,41 @@ from .utils import get_custom_setting
 
 
 def get_config_loader(path: str) -> Callable:
-    """ Import the function at a given path and return it
-    """
+    """Import the function at a given path and return it"""
     try:
         config_loader = import_string(path)
     except ImportError as e:
-        raise ImproperlyConfigured(
-            f'Error importing SAML config loader {path}: "{e}"')
+        raise ImproperlyConfigured(f'Error importing SAML config loader {path}: "{e}"')
 
     if not callable(config_loader):
-        raise ImproperlyConfigured(
-            "SAML config loader must be a callable object.")
+        raise ImproperlyConfigured("SAML config loader must be a callable object.")
 
     return config_loader
 
 
 def config_settings_loader(request: Optional[HttpRequest] = None) -> SPConfig:
-    """ Utility function to load the pysaml2 configuration.
-        The configuration can be modified based on the request being passed.
-        This is the default config loader, which just loads the config from the settings.
+    """Utility function to load the pysaml2 configuration.
+    The configuration can be modified based on the request being passed.
+    This is the default config loader, which just loads the config from the settings.
     """
     conf = SPConfig()
     conf.load(copy.deepcopy(settings.SAML_CONFIG))
     return conf
 
 
-def get_config(config_loader_path: Optional[Union[Callable, str]] = None,
-               request: Optional[HttpRequest] = None) -> SPConfig:
-    """ Load a config_loader function if necessary, and call that
-        function with the request as argument.
-        If the config_loader_path is a callable instead of a string,
-        no importing is necessary and it will be used directly.
-        Return the resulting SPConfig.
+def get_config(
+    config_loader_path: Optional[Union[Callable, str]] = None,
+    request: Optional[HttpRequest] = None,
+) -> SPConfig:
+    """Load a config_loader function if necessary, and call that
+    function with the request as argument.
+    If the config_loader_path is a callable instead of a string,
+    no importing is necessary and it will be used directly.
+    Return the resulting SPConfig.
     """
     config_loader_path = config_loader_path or get_custom_setting(
-        'SAML_CONFIG_LOADER', 'djangosaml2.conf.config_settings_loader')
+        "SAML_CONFIG_LOADER", "djangosaml2.conf.config_settings_loader"
+    )
 
     if callable(config_loader_path):
         config_loader = config_loader_path

@@ -21,14 +21,13 @@ register = template.Library()
 
 
 class IdPListNode(template.Node):
-
     def __init__(self, variable_name):
         self.variable_name = variable_name
 
     def render(self, context):
         conf = config_settings_loader()
         context[self.variable_name] = available_idps(conf)
-        return ''
+        return ""
 
 
 @register.tag
@@ -37,9 +36,11 @@ def idplist(parser, token):
         tag_name, as_part, variable = token.split_contents()
     except ValueError:
         raise template.TemplateSyntaxError(
-            '%r tag requires two arguments' % token.contents.split()[0])
-    if not as_part == 'as':
+            "%r tag requires two arguments" % token.contents.split()[0]
+        )
+    if not as_part == "as":
         raise template.TemplateSyntaxError(
-            '%r tag first argument must be the literal "as"' % tag_name)
+            '%r tag first argument must be the literal "as"' % tag_name
+        )
 
     return IdPListNode(variable)

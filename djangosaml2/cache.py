@@ -19,7 +19,7 @@ from saml2.cache import Cache
 class DjangoSessionCacheAdapter(dict):
     """A cache of things that are stored in the Django Session"""
 
-    key_prefix = '_saml2'
+    key_prefix = "_saml2"
 
     def __init__(self, django_session, key_suffix):
         self.session = django_session
@@ -49,8 +49,7 @@ class OutstandingQueriesCache:
     """
 
     def __init__(self, django_session):
-        self._db = DjangoSessionCacheAdapter(
-            django_session, '_outstanding_queries')
+        self._db = DjangoSessionCacheAdapter(django_session, "_outstanding_queries")
 
     def outstanding_queries(self):
         return self._db._get_objects()
@@ -79,7 +78,7 @@ class IdentityCache(Cache):
     """
 
     def __init__(self, django_session):
-        self._db = DjangoSessionCacheAdapter(django_session, '_identities')
+        self._db = DjangoSessionCacheAdapter(django_session, "_identities")
         self._sync = True
 
 
@@ -89,4 +88,4 @@ class StateCache(DjangoSessionCacheAdapter):
     """
 
     def __init__(self, django_session):
-        super().__init__(django_session, '_state')
+        super().__init__(django_session, "_state")
