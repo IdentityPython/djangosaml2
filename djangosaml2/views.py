@@ -208,7 +208,7 @@ class LoginView(SPConfigMixin, View):
                 logger.debug(("A discovery process is needed trough a"
                               "Discovery Service: {}").format(discovery_service))
                 login_url = request.build_absolute_uri(reverse('saml2_login'))
-                login_url = '{0}?next={1}'.format(login_url, quote(next_path, safe=''))
+                login_url = '{}?next={}'.format(login_url, quote(next_path, safe=''))
                 ds_url = '{0}?entityID={1}&return={2}&returnIDParam=idp'
                 ds_url = ds_url.format(discovery_service,
                                        quote(getattr(conf, 'entityid'), safe=''),
@@ -225,7 +225,7 @@ class LoginView(SPConfigMixin, View):
         # is the first one, otherwise next logger message will print None
         if not configured_idps: # pragma: no cover
             raise IdPConfigurationMissing(
-                ('IdP is missing or its metadata is expired.'))
+                'IdP is missing or its metadata is expired.')
         if selected_idp is None:
             selected_idp = list(configured_idps.keys())[0]
 
@@ -590,11 +590,11 @@ class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
             result = client.global_logout(subject_id)
         except LogoutError as exp:
             logger.exception(
-                'Error Handled - SLO not supported by IDP: {}'.format(exp))
+                f'Error Handled - SLO not supported by IDP: {exp}')
             _error = exp
         except UnsupportedBinding as exp:
             logger.exception(
-                'Error Handled - SLO - unsupported binding by IDP: {}'.format(exp))
+                f'Error Handled - SLO - unsupported binding by IDP: {exp}')
             _error = exp
 
         auth.logout(request)

@@ -286,7 +286,7 @@ class Saml2BackendTests(TestCase):
         self.assertTrue(isinstance(user, TestUser))
         self.assertTrue(created)
         self.assertIn(
-            "DEBUG:djangosaml2:New user created: {}".format(user),
+            f"DEBUG:djangosaml2:New user created: {user}",
             logs.output,
         )
 

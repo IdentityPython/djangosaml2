@@ -43,7 +43,7 @@ class DjangoSessionCacheAdapter(dict):
         self.session.modified = True
 
 
-class OutstandingQueriesCache(object):
+class OutstandingQueriesCache:
     """Handles the queries that have been sent to the IdP and have not
     been replied yet.
     """
