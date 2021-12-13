@@ -43,8 +43,6 @@ from saml2.response import (RequestVersionTooLow,
                             UnsolicitedResponse)
 from saml2.s_utils import UnsupportedBinding
 from saml2.saml import SCM_BEARER
-from saml2.saml import AuthnContextClassRef
-from saml2.samlp import RequestedAuthnContext
 from saml2.samlp import AuthnRequest, IDPEntry, IDPList, Scoping
 from saml2.sigver import MissingKey
 from saml2.validate import ResponseLifetimeExceed, ToEarly
