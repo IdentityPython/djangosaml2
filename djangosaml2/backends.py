@@ -14,16 +14,15 @@
 # limitations under the License.
 
 import logging
-from typing import Any, Optional, Tuple
 import warnings
+from typing import Any, Optional, Tuple
 
 from django.apps import apps
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured, MultipleObjectsReturned
+
 from django.contrib import auth
 from django.contrib.auth.backends import ModelBackend
-from django.core.exceptions import (ImproperlyConfigured,
-                                    MultipleObjectsReturned)
-
 
 logger = logging.getLogger('djangosaml2')
 

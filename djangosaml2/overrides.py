@@ -1,7 +1,8 @@
 import logging
 
-import saml2.client
 from django.conf import settings
+
+import saml2.client
 
 logger = logging.getLogger('djangosaml2')
 

@@ -22,13 +22,14 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import resolve_url
+
 try:
     from django.utils.http import url_has_allowed_host_and_scheme
 except ImportError:  # django 2.2
     from django.utils.http import is_safe_url as url_has_allowed_host_and_scheme
+
 from saml2.config import SPConfig
 from saml2.s_utils import UnknownSystemEntity
-
 
 logger = logging.getLogger(__name__)
 

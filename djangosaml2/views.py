@@ -15,32 +15,44 @@
 
 import base64
 import logging
-import saml2
 from urllib.parse import quote
 
 from django.conf import settings
-from django.contrib import auth
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.views import LogoutView as AuthLogoutView
 from django.core.exceptions import PermissionDenied, SuspiciousOperation
-from django.http import (HttpRequest, HttpResponse, HttpResponseBadRequest,
-                         HttpResponseRedirect, HttpResponseServerError)
+from django.http import (
+    HttpRequest,
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseRedirect,
+    HttpResponseServerError,
+)
 from django.shortcuts import render
 from django.template import TemplateDoesNotExist
 from django.urls import reverse
 from django.utils.decorators import method_decorator
+from django.utils.module_loading import import_string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-from django.utils.module_loading import import_string
+
+from django.contrib import auth
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import LogoutView as AuthLogoutView
+
+import saml2
 from saml2.client_base import LogoutError
 from saml2.config import SPConfig
 from saml2.ident import code, decode
 from saml2.mdstore import SourceNotFound
 from saml2.metadata import entity_descriptor
-from saml2.response import (RequestVersionTooLow,
-                            SignatureError, StatusAuthnFailed, StatusError,
-                            StatusNoAuthnContext, StatusRequestDenied,
-                            UnsolicitedResponse)
+from saml2.response import (
+    RequestVersionTooLow,
+    SignatureError,
+    StatusAuthnFailed,
+    StatusError,
+    StatusNoAuthnContext,
+    StatusRequestDenied,
+    UnsolicitedResponse,
+)
 from saml2.s_utils import UnsupportedBinding
 from saml2.saml import SCM_BEARER
 from saml2.samlp import AuthnRequest, IDPEntry, IDPList, Scoping
@@ -51,11 +63,15 @@ from .cache import IdentityCache, OutstandingQueriesCache, StateCache
 from .conf import get_config
 from .exceptions import IdPConfigurationMissing
 from .overrides import Saml2Client
-from .utils import (add_idp_hinting, available_idps, get_custom_setting,
-                    get_fallback_login_redirect_url,
-                    get_idp_sso_supported_bindings, get_location,
-                    validate_referral_url)
-
+from .utils import (
+    add_idp_hinting,
+    available_idps,
+    get_custom_setting,
+    get_fallback_login_redirect_url,
+    get_idp_sso_supported_bindings,
+    get_location,
+    validate_referral_url,
+)
 
 logger = logging.getLogger('djangosaml2')
 
@@ -738,7 +754,7 @@ class MetadataView(SPConfigMixin, View):
 
 
 def get_namespace_prefixes():
-    from saml2 import md, saml, samlp, xmlenc, xmldsig
+    from saml2 import md, saml, samlp, xmldsig, xmlenc
     return {'saml': saml.NAMESPACE,
             'samlp': samlp.NAMESPACE,
             'md': md.NAMESPACE,

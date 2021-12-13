@@ -23,27 +23,34 @@ from urllib.parse import parse_qs, urlparse
 
 from django import http
 from django.conf import settings
-from django.contrib.auth import SESSION_KEY, get_user_model
-from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ImproperlyConfigured
 from django.test import Client, TestCase, override_settings
 from django.test.client import RequestFactory
 from django.urls import reverse, reverse_lazy
+
+from django.contrib.auth import SESSION_KEY, get_user_model
+from django.contrib.auth.models import AnonymousUser
+
+from saml2.config import SPConfig
+from saml2.s_utils import (
+    UnknownSystemEntity,
+    decode_base64_and_inflate,
+    deflate_and_base64_encode,
+)
+
 from djangosaml2 import views
 from djangosaml2.cache import OutstandingQueriesCache
 from djangosaml2.conf import get_config
 from djangosaml2.middleware import SamlSessionMiddleware
 from djangosaml2.tests import conf
-from djangosaml2.utils import (get_fallback_login_redirect_url,
-                               get_idp_sso_supported_bindings,
-                               get_session_id_from_saml2,
-                               get_subject_id_from_saml2,
-                               saml2_from_httpredirect_request)
-from djangosaml2.views import (EchoAttributesView, finish_logout)
-from saml2.config import SPConfig
-from saml2.s_utils import (decode_base64_and_inflate,
-                           deflate_and_base64_encode,
-                           UnknownSystemEntity)
+from djangosaml2.utils import (
+    get_fallback_login_redirect_url,
+    get_idp_sso_supported_bindings,
+    get_session_id_from_saml2,
+    get_subject_id_from_saml2,
+    saml2_from_httpredirect_request,
+)
+from djangosaml2.views import EchoAttributesView, finish_logout
 
 from .auth_response import auth_response
 from .utils import SAMLPostFormParser

@@ -20,6 +20,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest
 from django.utils.module_loading import import_string
+
 from saml2.config import SPConfig
 
 from .utils import get_custom_setting

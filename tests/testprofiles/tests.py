@@ -15,13 +15,13 @@
 # limitations under the License.
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
-from djangosaml2.backends import get_saml_user_model
-from django.contrib.auth.models import User as DjangoUserModel
 from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase, override_settings
-from djangosaml2.backends import Saml2Backend, set_attribute
 
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User as DjangoUserModel
+
+from djangosaml2.backends import Saml2Backend, get_saml_user_model, set_attribute
 from testprofiles.models import TestUser
 
 
