@@ -445,7 +445,7 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
             return HttpResponseBadRequest(
                 'Missing "SAMLResponse" parameter in POST data.'
             )
-
+        attribute_mapping = attribute_mapping = {'uid': ('username', ), 'mail': ('email', )}
         attribute_mapping = attribute_mapping or get_custom_setting(
             "SAML_ATTRIBUTE_MAPPING", {"uid": ("username",)}
         )
@@ -543,12 +543,16 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
                     "not_on_or_after": assertion_not_on_or_after,
                 }
                 break
-
+        print("************************************************")
+        print(attribute_mapping)
+        print("************************************************")
         if callable(attribute_mapping):
             attribute_mapping = attribute_mapping()
         if callable(create_unknown_user):
             create_unknown_user = create_unknown_user()
-
+        print("************************************************")
+        print(attribute_mapping)
+        print("************************************************")
         logger.debug("Trying to authenticate the user. Session info: %s", session_info)
         user = auth.authenticate(
             request=request,
