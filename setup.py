@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2012 Yaco Sistemas <lgs@yaco.es>
+# Copyright (C) 2011-2012 Yaco Sistemas <lorenzo.gil.sanchez@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ setup(
     ],
     keywords="django,pysaml2,sso,saml2,federated authentication,authentication",
     author="Yaco Sistemas and independent contributors",
-    author_email="lgs@yaco.es",
+    author_email="lorenzo.gil.sanchez@gmail.com",
     maintainer="Giuseppe De Marco",
     url="https://github.com/IdentityPython/djangosaml2",
     download_url="https://pypi.org/project/djangosaml2/",

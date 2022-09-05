@@ -27,7 +27,7 @@
     </md:Organization>
     <md:ContactPerson contactType="technical">
       <md:SurName>Administrator</md:SurName>
-      <md:EmailAddress>lgs@yaco.es</md:EmailAddress>
+      <md:EmailAddress>lorenzo.gil.sanchez@gmail.com</md:EmailAddress>
     </md:ContactPerson>
   </md:EntityDescriptor>
 </md:EntitiesDescriptor>
