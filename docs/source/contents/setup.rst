@@ -581,7 +581,7 @@ settings.py file under the SAML_CONFIG option. We will see a typical configurati
         {'given_name': 'Lorenzo',
          'sur_name': 'Gil',
          'company': 'Yaco Sistemas',
-         'email_address': 'lorenzo.gil.sanchez@gmai.com',
+         'email_address': 'lorenzo.gil.sanchez@gmail.com',
          'contact_type': 'technical'},
         {'given_name': 'Angel',
          'sur_name': 'Fernandez',
