@@ -166,7 +166,7 @@ class Saml2Backend(ModelBackend):
         # Update user with new attributes from incoming request
         if user is not None:
             user = self._update_user(
-                user, attributes, attribute_mapping, force_save=created
+                user, attributes, attribute_mapping, force_save=created, request=request
             )
 
         if self.user_can_authenticate(user):
