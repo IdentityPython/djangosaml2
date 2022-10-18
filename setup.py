@@ -27,7 +27,7 @@ def read(*rnames):
 
 setup(
     name="djangosaml2",
-    version="1.5.3",
+    version="1.5.4",
     description="pysaml2 integration for Django",
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
