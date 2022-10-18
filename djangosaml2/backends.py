@@ -20,9 +20,9 @@ from typing import Any, Optional, Tuple
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, MultipleObjectsReturned
-
 from django.contrib import auth
 from django.contrib.auth.backends import ModelBackend
+from django.http.request import HttpRequest
 
 logger = logging.getLogger("djangosaml2")
 
@@ -173,7 +173,7 @@ class Saml2Backend(ModelBackend):
             return user
 
     def _update_user(
-        self, user, attributes: dict, attribute_mapping: dict, force_save: bool = False
+        self, user, attributes: dict, attribute_mapping: dict, force_save: bool = False, request: HttpRequest = None
     ):
         """Update a user with a set of attributes and returns the updated user.
 
