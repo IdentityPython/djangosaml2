@@ -163,6 +163,17 @@ class Saml2Backend(ModelBackend):
             request=request,
         )
 
+        if not self.is_authorized_user(
+            user,
+            attributes,
+            attribute_mapping,
+            idp_entityid,
+            assertion_info,
+            session_info,
+        ):
+            logger.debug("Request not authorized for this user.")
+            return None
+
         # Update user with new attributes from incoming request
         if user is not None:
             user = self._update_user(
@@ -239,6 +250,22 @@ class Saml2Backend(ModelBackend):
         **kwargs,
     ) -> bool:
         """Hook to allow custom authorization policies based on SAML attributes. True by default."""
+        return True
+
+    def is_authorized_user(
+        self,
+        user,
+        attributes: dict,
+        attribute_mapping: dict,
+        idp_entityid: str,
+        assertion_info: dict,
+        session_info: dict,
+        **kwargs,
+    ) -> bool:
+        """Hook to allow custom authorization policies based on SAML attributes after the authenticating user is known.
+
+        This can be used e.g. to enforce multifactor authentication for administrators.
+        """
         return True
 
     def user_can_authenticate(self, user) -> bool:
