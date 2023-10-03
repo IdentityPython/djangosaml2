@@ -665,6 +665,8 @@ SAML2 certificate creation example::
 PySAML2 certificates are files, in the form of strings that contains a filesystem path.
 What about configuring the certificates in a different way, in case we are using a container based deploy?
 
+- You could try using a third-party package like `django-filesify <https://pypi.org/project/django-filesify/>`_ to create a physical files from a secured database text field where the cert and key are stored.
+
 - You could supply the cert & key as environment variables (base64 encoded) then create the files when the container starts, either in an entry point shell script or in your settings.py file.
 
 - Using `Python Tempfile <https://docs.python.org/3/library/tempfile.html>`_ In the settings create two temp files, then write the content configured in environment variables in them, then use tmpfile.name as key/cert values in pysaml2 configuration.
