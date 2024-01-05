@@ -808,7 +808,7 @@ class LogoutView(SPConfigMixin, View):
                 )
             except StatusError as e:
                 response = None
-                logger.warning("Error logging out from remote provider: " + str(e))
+                logger.warning(f"Error logging out from remote provider: {e}")
             state.sync()
             return finish_logout(request, response)
 

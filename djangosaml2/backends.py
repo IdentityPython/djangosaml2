@@ -284,9 +284,7 @@ class Saml2Backend(ModelBackend):
             user = UserModel.objects.get(**user_query_args)
         except MultipleObjectsReturned:
             logger.error(
-                "Multiple users match, model: %s, lookup: %s",
-                UserModel._meta,
-                user_query_args,
+                f"Multiple users match, model: {UserModel._meta}, lookup: {user_query_args}",
             )
         except UserModel.DoesNotExist:
             # Create new one if desired by settings
