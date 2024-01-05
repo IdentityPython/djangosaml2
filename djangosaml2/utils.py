@@ -80,7 +80,7 @@ def get_idp_sso_supported_bindings(
     except UnknownSystemEntity:
         raise UnknownSystemEntity
     except Exception as e:
-        logger.error(f"get_idp_sso_supported_bindings failed with: {e}")
+        logger.exception(f"get_idp_sso_supported_bindings failed with: {e}")
 
 
 def get_location(http_info):
@@ -116,7 +116,9 @@ def validate_referral_url(request, url):
             # This will also resolve Django URL pattern names
             url = resolve_url(url)
     except NoReverseMatch:
-        logger.debug("Could not validate given referral url is a valid URL")
+        logger.debug(
+            "Could not validate given referral url is a valid URL", exc_info=True
+        )
         return None
 
     # Ensure the user-originating redirection url is safe.

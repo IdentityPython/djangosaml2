@@ -175,7 +175,7 @@ class LoginView(SPConfigMixin, View):
 
     def unknown_idp(self, request, idp):
         msg = f"Error: IdP EntityID {escape(idp)} was not found in metadata"
-        logger.error(msg)
+        logger.exception(msg)
         return HttpResponse(msg, status=403)
 
     def load_sso_kwargs_scoping(self, sso_kwargs):
@@ -358,7 +358,7 @@ class LoginView(SPConfigMixin, View):
                     **sso_kwargs,
                 )
             except TypeError as e:
-                logger.error(f"{_msg}: {e}")
+                logger.exception(f"{_msg}: {e}")
                 return HttpResponse(_msg)
             else:
                 http_response = HttpResponseRedirect(get_location(result))
@@ -369,7 +369,7 @@ class LoginView(SPConfigMixin, View):
                 try:
                     location = client.sso_location(selected_idp, binding)
                 except TypeError as e:
-                    logger.error(f"{_msg}: {e}")
+                    logger.exception(f"{_msg}: {e}")
                     return HttpResponse(_msg)
 
                 session_id, request_xml = client.create_authn_request(
@@ -396,7 +396,8 @@ class LoginView(SPConfigMixin, View):
                     )
                 except TemplateDoesNotExist as e:
                     logger.debug(
-                        f"TemplateDoesNotExist: [{self.post_binding_form_template}] - {e}"
+                        f"TemplateDoesNotExist: [{self.post_binding_form_template}] - {e}",
+                        exc_info=True
                     )
 
             if not http_response:
@@ -410,7 +411,7 @@ class LoginView(SPConfigMixin, View):
                     )
                 except TypeError as e:
                     _msg = f"Can't prepare the authentication for {selected_idp}"
-                    logger.error(f"{_msg}: {e}")
+                    logger.exception(f"{_msg}: {e}")
                     return HttpResponse(_msg)
                 else:
                     http_response = HttpResponse(result["data"])
@@ -545,7 +546,7 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
         try:
             self.custom_validation(response)
         except Exception as e:
-            logger.warning(f"SAML Response validation error: {e}")
+            logger.warning(f"SAML Response validation error: {e}", exc_info=True)
             return self.handle_acs_failure(
                 request,
                 status=400,
@@ -808,7 +809,7 @@ class LogoutView(SPConfigMixin, View):
                 )
             except StatusError as e:
                 response = None
-                logger.warning(f"Error logging out from remote provider: {e}")
+                logger.warning(f"Error logging out from remote provider: {e}", exc_info=True)
             state.sync()
             return finish_logout(request, response)
 

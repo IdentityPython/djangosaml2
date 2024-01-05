@@ -294,7 +294,7 @@ class Saml2BackendTests(TestCase):
         self.assertFalse(created)
         self.assertIn(
             "ERROR:djangosaml2:Multiple users match, model: testprofiles.testuser, lookup: {'age': ''}",
-            logs.output,
+            logs.output[0],
         )
 
     def test_get_or_create_user_no_create(self):
@@ -314,7 +314,7 @@ class Saml2BackendTests(TestCase):
         self.assertFalse(created)
         self.assertIn(
             "ERROR:djangosaml2:The user does not exist, model: testprofiles.testuser, lookup: {'username': 'paul'}",
-            logs.output,
+            logs.output[0],
         )
 
     def test_get_or_create_user_create(self):
@@ -334,7 +334,7 @@ class Saml2BackendTests(TestCase):
         self.assertTrue(created)
         self.assertIn(
             f"DEBUG:djangosaml2:New user created: {user}",
-            logs.output,
+            logs.output[0],
         )
 
     def test_deprecations(self):
