@@ -33,3 +33,8 @@ and [configuration](https://django-csp.readthedocs.io/en/latest/configuration.ht
 guides: djangosaml2 will automatically blend in and update the headers for
 POST-bindings, so you must not include exceptions for djangosaml2 in your
 global configuration.
+
+You can specify a custom CSP handler via the `SAML_CSP_HANDLER` setting and the
+warning can be disabled by setting `SAML_CSP_HANDLER=''`. See the 
+[djangosaml2](https://djangosaml2.readthedocs.io/) documentation for more 
+information.

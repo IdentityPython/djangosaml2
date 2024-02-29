@@ -15,6 +15,7 @@
 
 import base64
 import logging
+from functools import wraps
 from typing import Optional
 from urllib.parse import quote
 
@@ -69,6 +70,7 @@ from .overrides import Saml2Client
 from .utils import (
     add_idp_hinting,
     available_idps,
+    get_csp_handler,
     get_custom_setting,
     get_fallback_login_redirect_url,
     get_idp_sso_supported_bindings,
@@ -78,25 +80,15 @@ from .utils import (
 
 logger = logging.getLogger("djangosaml2")
 
-# Update Content-Security-Policy headers for POST-Bindings
-try:
-    from csp.decorators import csp_update
-except ModuleNotFoundError:
-    # If csp is not installed, do not update fields as Content-Security-Policy
-    # is not used
-    def saml2_csp_update(view):
-        return view
 
-    logger.warning("django-csp could not be found, not updating Content-Security-Policy. Please "
-                   "make sure CSP is configured at least by httpd or setup django-csp. See "
-                   "https://djangosaml2.readthedocs.io/contents/security.html#content-security-policy"
-                   " for more information")
-else:
-    # script-src 'unsafe-inline' to autosubmit forms,
-    # form-action https: to send data to IdPs
-    saml2_csp_update = csp_update(
-        SCRIPT_SRC=["'unsafe-inline'"], FORM_ACTION=["https:"]
-    )
+def saml2_csp_update(view):
+    csp_handler = get_csp_handler()
+
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        return csp_handler(view)(*args, **kwargs)
+
+    return wrapper
 
 
 def _set_subject_id(session, subject_id):

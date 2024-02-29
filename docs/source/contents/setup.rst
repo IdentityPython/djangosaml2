@@ -288,6 +288,28 @@ djangosaml2 provides a hook 'is_authorized' for the SP to store assertion IDs an
         cache_storage.set(assertion_id, 'True', ex=time_delta)
         return True
 
+CSP Configuration
+=================
+By default djangosaml2 will use `django-csp <https://django-csp.readthedocs.io>`_ 
+to configure CSP if available otherwise a warning will be logged.
+
+The warning can be disabled by setting::
+
+  SAML_CSP_HANDLER = ''
+
+A custom handler can similary be specified::
+
+  # Django settings
+  SAML_CSP_HANDLER = 'myapp.utils.csp_handler'
+
+  # myapp/utils.py
+  def csp_handler(response):
+      response.headers['Content-Security-Policy'] = ...
+      return response
+
+A value of `None` is the default and will use `django-csp <https://django-csp.readthedocs.io>`_ if available.
+
+
 Users, attributes and account linking
 -------------------------------------
 

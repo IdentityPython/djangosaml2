@@ -16,12 +16,14 @@
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User as DjangoUserModel
 
 from djangosaml2.backends import Saml2Backend, get_saml_user_model, set_attribute
+from djangosaml2.utils import get_csp_handler
 from testprofiles.models import TestUser
 
 
@@ -559,3 +561,36 @@ class CustomizedSaml2BackendTests(Saml2BackendTests):
 
         self.user.refresh_from_db()
         self.assertEqual(user.username, "john")
+
+
+class CSPHandlerTests(TestCase):
+    def test_get_csp_handler_none(self):
+        get_csp_handler.cache_clear()
+        with override_settings(SAML_CSP_HANDLER=None):
+            csp_handler = get_csp_handler()
+            self.assertIn(
+                csp_handler.__module__, ["csp.decorators", "djangosaml2.utils"]
+            )
+            self.assertIn(csp_handler.__name__, ["decorator", "empty_view_decorator"])
+
+    def test_get_csp_handler_empty(self):
+        get_csp_handler.cache_clear()
+        with override_settings(SAML_CSP_HANDLER=""):
+            csp_handler = get_csp_handler()
+            self.assertEqual(csp_handler.__name__, "empty_view_decorator")
+
+    def test_get_csp_handler_specified(self):
+        get_csp_handler.cache_clear()
+        with override_settings(SAML_CSP_HANDLER="testprofiles.utils.csp_handler"):
+            client = Client()
+            response = client.get(reverse("saml2_login"))
+            self.assertIn("Content-Security-Policy", response.headers)
+            self.assertEqual(
+                response.headers["Content-Security-Policy"], "testing CSP value"
+            )
+
+    def test_get_csp_handler_specified_missing(self):
+        get_csp_handler.cache_clear()
+        with override_settings(SAML_CSP_HANDLER="does.not.exist"):
+            with self.assertRaises(ImportError):
+                get_csp_handler()

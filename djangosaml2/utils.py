@@ -16,6 +16,7 @@ import logging
 import re
 import urllib
 import zlib
+from functools import cache, wraps
 from typing import Optional
 
 from django.conf import settings
@@ -24,6 +25,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import resolve_url
 from django.urls import NoReverseMatch
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.module_loading import import_string
 
 from saml2.config import SPConfig
 from saml2.mdstore import MetaDataMDX
@@ -206,3 +208,47 @@ def add_idp_hinting(request, http_response) -> bool:
             f"Idp hinting: cannot detect request type [{http_response.status_code}]"
         )
     return False
+
+
+@cache
+def get_csp_handler():
+    def empty_view_decorator(view):
+        return view
+
+    csp_handler_string = get_custom_setting("SAML_CSP_HANDLER", None)
+
+    if csp_handler_string is None:
+        # No CSP handler configured, attempt to use django-csp
+        try:
+            from csp.decorators import csp_update
+        except ModuleNotFoundError:
+            # If csp is not installed, do not update fields as Content-Security-Policy
+            # is not used
+            logger.warning(
+                "django-csp could not be found, not updating Content-Security-Policy. Please "
+                "make sure CSP is configured. This can be done by your reverse proxy, "
+                "django-csp or a custom CSP handler via SAML_CSP_HANDLER. See "
+                "https://djangosaml2.readthedocs.io/contents/security.html#content-security-policy"
+                " for more information. "
+                "This warning can be disabled by setting `SAML_CSP_HANDLER=''` in your settings."
+            )
+            return empty_view_decorator
+        else:
+            # script-src 'unsafe-inline' to autosubmit forms,
+            # form-action https: to send data to IdPs
+            return csp_update(SCRIPT_SRC=["'unsafe-inline'"], FORM_ACTION=["https:"])
+    elif csp_handler_string.strip() != "":
+        # Non empty string is configured, attempt to import it
+        csp_handler = import_string(csp_handler_string)
+
+        def custom_csp_updater(f):
+            @wraps(f)
+            def wrapper(*args, **kwargs):
+                return csp_handler(f(*args, **kwargs))
+
+            return wrapper
+
+        return custom_csp_updater
+    else:
+        # Fall back to empty decorator when csp_handler_string is empty
+        return empty_view_decorator
