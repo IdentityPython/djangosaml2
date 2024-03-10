@@ -151,7 +151,7 @@ example: 'home' could be '/home' or 'home/'.
 If this is unfeasible, this strict validation can be turned off by setting
 ``SAML_STRICT_URL_VALIDATION`` to ``False`` in settings.py.
 
-During validation, `Django named URL patterns<https://docs.djangoproject.com/en/dev/topics/http/urls/#naming-url-patterns>`_
+During validation, `Django named URL patterns <https://docs.djangoproject.com/en/dev/topics/http/urls/#naming-url-patterns>`_
 will also be resolved. Turning off strict validation will prevent this from happening.
 
 Preferred sso binding
