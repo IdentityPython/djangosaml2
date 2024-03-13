@@ -151,7 +151,7 @@ example: 'home' could be '/home' or 'home/'.
 If this is unfeasible, this strict validation can be turned off by setting
 ``SAML_STRICT_URL_VALIDATION`` to ``False`` in settings.py.
 
-During validation, `Django named URL patterns<https://docs.djangoproject.com/en/dev/topics/http/urls/#naming-url-patterns>`_
+During validation, `Django named URL patterns <https://docs.djangoproject.com/en/dev/topics/http/urls/#naming-url-patterns>`_
 will also be resolved. Turning off strict validation will prevent this from happening.
 
 Preferred sso binding
@@ -287,6 +287,28 @@ djangosaml2 provides a hook 'is_authorized' for the SP to store assertion IDs an
         time_delta = isoparse(expiration_time) - datetime.now(timezone.utc)
         cache_storage.set(assertion_id, 'True', ex=time_delta)
         return True
+
+CSP Configuration
+=================
+By default djangosaml2 will use `django-csp <https://django-csp.readthedocs.io>`_ 
+to configure CSP if available otherwise a warning will be logged.
+
+The warning can be disabled by setting::
+
+  SAML_CSP_HANDLER = ''
+
+A custom handler can similary be specified::
+
+  # Django settings
+  SAML_CSP_HANDLER = 'myapp.utils.csp_handler'
+
+  # myapp/utils.py
+  def csp_handler(response):
+      response.headers['Content-Security-Policy'] = ...
+      return response
+
+A value of `None` is the default and will use `django-csp <https://django-csp.readthedocs.io>`_ if available.
+
 
 Users, attributes and account linking
 -------------------------------------
