@@ -212,6 +212,8 @@ def add_idp_hinting(request, http_response) -> bool:
 
 @cache
 def get_csp_handler():
+    """Returns a view decorator for CSP."""
+
     def empty_view_decorator(view):
         return view
 
@@ -219,25 +221,9 @@ def get_csp_handler():
 
     if csp_handler_string is None:
         # No CSP handler configured, attempt to use django-csp
-        try:
-            from csp.decorators import csp_update
-        except ModuleNotFoundError:
-            # If csp is not installed, do not update fields as Content-Security-Policy
-            # is not used
-            logger.warning(
-                "django-csp could not be found, not updating Content-Security-Policy. Please "
-                "make sure CSP is configured. This can be done by your reverse proxy, "
-                "django-csp or a custom CSP handler via SAML_CSP_HANDLER. See "
-                "https://djangosaml2.readthedocs.io/contents/security.html#content-security-policy"
-                " for more information. "
-                "This warning can be disabled by setting `SAML_CSP_HANDLER=''` in your settings."
-            )
-            return empty_view_decorator
-        else:
-            # script-src 'unsafe-inline' to autosubmit forms,
-            # form-action https: to send data to IdPs
-            return csp_update(SCRIPT_SRC=["'unsafe-inline'"], FORM_ACTION=["https:"])
-    elif csp_handler_string.strip() != "":
+        return _django_csp_update_decorator() or empty_view_decorator
+
+    if csp_handler_string.strip() != "":
         # Non empty string is configured, attempt to import it
         csp_handler = import_string(csp_handler_string)
 
@@ -249,6 +235,28 @@ def get_csp_handler():
             return wrapper
 
         return custom_csp_updater
+
+    # Fall back to empty decorator when csp_handler_string is empty
+    return empty_view_decorator
+
+
+def _django_csp_update_decorator():
+    """Returns a view CSP decorator if django-csp is available, otherwise None."""
+    try:
+        from csp.decorators import csp_update
+    except ModuleNotFoundError:
+        # If csp is not installed, do not update fields as Content-Security-Policy
+        # is not used
+        logger.warning(
+            "django-csp could not be found, not updating Content-Security-Policy. Please "
+            "make sure CSP is configured. This can be done by your reverse proxy, "
+            "django-csp or a custom CSP handler via SAML_CSP_HANDLER. See "
+            "https://djangosaml2.readthedocs.io/contents/security.html#content-security-policy"
+            " for more information. "
+            "This warning can be disabled by setting `SAML_CSP_HANDLER=''` in your settings."
+        )
+        return
     else:
-        # Fall back to empty decorator when csp_handler_string is empty
-        return empty_view_decorator
+        # script-src 'unsafe-inline' to autosubmit forms,
+        # form-action https: to send data to IdPs
+        return csp_update(SCRIPT_SRC=["'unsafe-inline'"], FORM_ACTION=["https:"])
