@@ -16,7 +16,7 @@ import logging
 import re
 import urllib
 import zlib
-from functools import cache, wraps
+from functools import lru_cache, wraps
 from typing import Optional
 
 from django.conf import settings
@@ -210,7 +210,7 @@ def add_idp_hinting(request, http_response) -> bool:
     return False
 
 
-@cache
+@lru_cache()
 def get_csp_handler():
     """Returns a view decorator for CSP."""
 
