@@ -257,6 +257,6 @@ def _django_csp_update_decorator():
         )
         return
     else:
-        # script-src 'unsafe-inline' to autosubmit forms,
+        # autosubmit of forms uses nonce per default
         # form-action https: to send data to IdPs
-        return csp_update(SCRIPT_SRC=["'unsafe-inline'"], FORM_ACTION=["https:"])
+        return csp_update(FORM_ACTION=["https:"])
