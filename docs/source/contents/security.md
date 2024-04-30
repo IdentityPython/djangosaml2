@@ -34,6 +34,11 @@ guides: djangosaml2 will automatically blend in and update the headers for
 POST-bindings, so you must not include exceptions for djangosaml2 in your
 global configuration.
 
+Note that to enable autosubmit of post-bindings inline-javascript is used. To
+allow execution of this autosubmit-code a nonce is included, which works in
+default configuration but may not work if you modify `CSP_INCLUDE_NONCE_IN`
+to exclude `script-src`.
+
 You can specify a custom CSP handler via the `SAML_CSP_HANDLER` setting and the
 warning can be disabled by setting `SAML_CSP_HANDLER=''`. See the 
 [djangosaml2](https://djangosaml2.readthedocs.io/) documentation for more 
