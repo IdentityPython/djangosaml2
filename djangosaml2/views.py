@@ -788,7 +788,7 @@ class LogoutView(SPConfigMixin, View):
             request, request.POST, saml2.BINDING_HTTP_POST, *args, **kwargs
         )
 
-    def do_logout_service(self, request, data, binding):
+    def do_logout_service(self, request, data, binding, *args, **kwargs):
         logger.debug("Logout service started")
 
         state, client = self.get_state_client(request)
