@@ -189,10 +189,10 @@ class LoginView(SPConfigMixin, View):
 
     def should_prevent_auth(self, request) -> bool:
         # If the user is already authenticated that maybe because of two reasons:
-        # A) He has this URL in two browser windows and in the other one he
-        #    has already initiated the authenticated session.
-        # B) He comes from a view that (incorrectly) send him here because
-        #    he does not have enough permissions. That view should have shown
+        # A) They have this URL in two browser windows and in the other one they
+        #    have already initiated the authenticated session.
+        # B) They comes from a view that (incorrectly) sends them here because
+        #    they do not have enough permissions. That view should have shown
         #    an authorization error in the first place.
         return request.user.is_authenticated
 

@@ -263,7 +263,7 @@ class Saml2Backend(ModelBackend):
         attribute_mapping: dict,
         request,
     ) -> tuple[Optional[settings.AUTH_USER_MODEL], bool]:
-        """Look up the user to authenticate. If he doesn't exist, this method creates him (if so desired).
+        """Look up the user to authenticate. If they doesn't exist, this method creates them (if so desired).
         The default implementation looks only at the user_identifier. Override this method in order to do more complex behaviour,
         e.g. customize this per IdP.
         """
@@ -277,7 +277,6 @@ class Saml2Backend(ModelBackend):
             ): user_lookup_value
         }
 
-        # Lookup existing user
         # Lookup existing user
         user, created = None, False
         try:
