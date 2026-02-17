@@ -379,12 +379,9 @@ SAML_ATTRIBUTE_MAPPING option in your settings.py::
 where the keys of this dictionary are SAML user attributes and the values
 are Django User attributes.
 
-If you are using Django user profile objects to store extra attributes
-about your user you can add those attributes to the SAML_ATTRIBUTE_MAPPING
-dictionary. For each (key, value) pair, djangosaml2 will try to store the
-attribute in the User model if there is a matching field in that model.
-Otherwise it will try to do the same with your profile custom model. For
-multi-valued attributes only the first value is assigned to the destination field.
+For each (key, value) pair, djangosaml2 will try to store the attribute (key) in your
+configured `User` model if the matching fields exists on that model. For multi-valued
+attributes only the first value is assigned to the destination field.
 
 Alternatively, custom processing of attributes can be achieved by setting the
 value(s) in the SAML_ATTRIBUTE_MAPPING, to name(s) of method(s) defined on a
