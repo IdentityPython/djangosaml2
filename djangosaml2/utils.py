@@ -216,8 +216,20 @@ def get_csp_handler():
     csp_handler_string = get_custom_setting("SAML_CSP_HANDLER", None)
 
     if csp_handler_string is None:
-        # No CSP handler configured, attempt to use django-csp
-        return _django_csp_update_decorator() or empty_view_decorator
+        # No CSP handler configured, attempt django-csp first, then Django native CSP
+        handler = _django_csp_update_decorator() or _django_native_csp_decorator()
+        if handler:
+            return handler
+        logger.warning(
+            "No CSP integration found, not updating Content-Security-Policy. Please "
+            "make sure CSP is configured. This can be done by your reverse proxy, "
+            "Django's built-in CSP middleware (6.0+), django-csp, or a custom CSP "
+            "handler via SAML_CSP_HANDLER. See "
+            "https://djangosaml2.readthedocs.io/contents/security.html#content-security-policy"
+            " for more information. "
+            "This warning can be disabled by setting `SAML_CSP_HANDLER=''` in your settings."
+        )
+        return empty_view_decorator
 
     if csp_handler_string.strip() != "":
         # Non empty string is configured, attempt to import it
@@ -236,22 +248,32 @@ def get_csp_handler():
     return empty_view_decorator
 
 
+def _django_native_csp_decorator():
+    """Returns a view CSP decorator if Django's built-in CSP (6.0+) is configured, otherwise None."""
+    try:
+        from django.views.decorators.csp import csp_override
+    except ImportError:
+        return None
+
+    middleware = getattr(settings, "MIDDLEWARE", [])
+    if "django.middleware.csp.ContentSecurityPolicyMiddleware" not in middleware:
+        return None
+
+    csp_config = dict(getattr(settings, "SECURE_CSP", None) or {})
+    form_action = list(csp_config.get("form-action", []))
+    if "https:" not in form_action:
+        form_action.append("https:")
+    csp_config["form-action"] = form_action
+
+    return csp_override(csp_config)
+
+
 def _django_csp_update_decorator():
     """Returns a view CSP decorator if django-csp is available, otherwise None."""
     try:
         from csp.decorators import csp_update
         import csp
     except ModuleNotFoundError:
-        # If csp is not installed, do not update fields as Content-Security-Policy
-        # is not used
-        logger.warning(
-            "django-csp could not be found, not updating Content-Security-Policy. Please "
-            "make sure CSP is configured. This can be done by your reverse proxy, "
-            "django-csp or a custom CSP handler via SAML_CSP_HANDLER. See "
-            "https://djangosaml2.readthedocs.io/contents/security.html#content-security-policy"
-            " for more information. "
-            "This warning can be disabled by setting `SAML_CSP_HANDLER=''` in your settings."
-        )
         return
     else:
         # autosubmit of forms uses nonce per default

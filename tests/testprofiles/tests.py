@@ -569,9 +569,13 @@ class CSPHandlerTests(TestCase):
         with override_settings(SAML_CSP_HANDLER=None):
             csp_handler = get_csp_handler()
             self.assertIn(
-                csp_handler.__module__, ["csp.decorators", "djangosaml2.utils"]
+                csp_handler.__module__,
+                ["csp.decorators", "django.views.decorators.csp", "djangosaml2.utils"],
             )
-            self.assertIn(csp_handler.__name__, ["decorator", "empty_view_decorator"])
+            self.assertIn(
+                csp_handler.__name__,
+                ["decorator", "_wrapped_view", "empty_view_decorator"],
+            )
 
     def test_get_csp_handler_empty(self):
         get_csp_handler.cache_clear()
@@ -594,3 +598,72 @@ class CSPHandlerTests(TestCase):
         with override_settings(SAML_CSP_HANDLER="does.not.exist"):
             with self.assertRaises(ImportError):
                 get_csp_handler()
+
+    def test_get_csp_handler_django_native_csp(self):
+        """Test that Django's built-in CSP (6.0+) is detected when configured."""
+        try:
+            from django.views.decorators.csp import csp_override  # noqa: F401
+        except ImportError:
+            self.skipTest("Django native CSP not available (requires Django 6.0+)")
+
+        get_csp_handler.cache_clear()
+        middleware = list(settings.MIDDLEWARE) + [
+            "django.middleware.csp.ContentSecurityPolicyMiddleware",
+        ]
+        with override_settings(
+            SAML_CSP_HANDLER=None,
+            MIDDLEWARE=middleware,
+            SECURE_CSP={"default-src": ["'self'"]},
+        ):
+            csp_handler = get_csp_handler()
+            self.assertEqual(csp_handler.__module__, "django.views.decorators.csp")
+
+    def test_get_csp_handler_django_native_csp_merges_form_action(self):
+        """Test that form-action https: is merged into existing SECURE_CSP."""
+        try:
+            from django.views.decorators.csp import csp_override  # noqa: F401
+        except ImportError:
+            self.skipTest("Django native CSP not available (requires Django 6.0+)")
+
+        get_csp_handler.cache_clear()
+        middleware = list(settings.MIDDLEWARE) + [
+            "django.middleware.csp.ContentSecurityPolicyMiddleware",
+        ]
+        with override_settings(
+            SAML_CSP_HANDLER=None,
+            MIDDLEWARE=middleware,
+            SECURE_CSP={"default-src": ["'self'"], "form-action": ["'self'"]},
+        ):
+            csp_handler = get_csp_handler()
+            # Apply the decorator to a dummy view and call it
+            from django.http import HttpRequest, HttpResponse
+
+            @csp_handler
+            def dummy_view(request):
+                return HttpResponse("test")
+
+            request = HttpRequest()
+            request.method = "GET"
+            response = dummy_view(request)
+            csp_header = response.headers.get("Content-Security-Policy", "")
+            self.assertIn("form-action", csp_header)
+            self.assertIn("https:", csp_header)
+            self.assertIn("'self'", csp_header)
+
+    def test_get_csp_handler_django_native_csp_no_middleware(self):
+        """Test that Django native CSP is skipped when middleware is not configured."""
+        try:
+            from django.views.decorators.csp import csp_override  # noqa: F401
+        except ImportError:
+            self.skipTest("Django native CSP not available (requires Django 6.0+)")
+
+        get_csp_handler.cache_clear()
+        # Default test MIDDLEWARE doesn't include CSP middleware
+        with override_settings(SAML_CSP_HANDLER=None):
+            csp_handler = get_csp_handler()
+            # Without django-csp and without native CSP middleware, falls back to empty
+            try:
+                import csp  # noqa: F401
+                # django-csp is installed, it will be used instead
+            except ImportError:
+                self.assertEqual(csp_handler.__name__, "empty_view_decorator")
