@@ -347,8 +347,15 @@ class LoginView(SPConfigMixin, View):
                     logger.error(f"{_msg}: {e}")
                     return HttpResponse(_msg)
 
+                # create_authn_request expects "sign_alg" while
+                # prepare_for_authenticate expects "sigalg"
+                create_authn_kwargs = dict(sso_kwargs)
+                sigalg = create_authn_kwargs.pop("sigalg", None)
+                if sigalg:
+                    create_authn_kwargs["sign_alg"] = sigalg
+
                 session_id, request_xml = client.create_authn_request(
-                    location, binding=binding, **sso_kwargs
+                    location, binding=binding, **create_authn_kwargs
                 )
                 try:
                     if isinstance(request_xml, AuthnRequest):

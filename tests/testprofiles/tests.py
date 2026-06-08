@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import MagicMock, patch
+
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase, override_settings
@@ -559,3 +561,57 @@ class CustomizedSaml2BackendTests(Saml2BackendTests):
 
         self.user.refresh_from_db()
         self.assertEqual(user.username, "john")
+
+
+class LoginViewSignAlgTests(TestCase):
+    """Test that create_authn_request receives sign_alg (not sigalg)."""
+
+    @patch("djangosaml2.views.available_idps")
+    @patch("djangosaml2.views.get_idp_sso_supported_bindings")
+    @patch("djangosaml2.views.Saml2Client")
+    @patch("djangosaml2.views.get_config")
+    def test_create_authn_request_receives_sign_alg(
+        self, mock_get_config, mock_saml2_client_cls, mock_get_bindings, mock_available_idps
+    ):
+        """When signing is enabled and POST binding with a custom template is used,
+        create_authn_request should receive sign_alg (not sigalg).
+        """
+        import saml2
+        from saml2 import xmldsig
+
+        # Configure the SP config mock
+        mock_conf = MagicMock()
+        mock_conf.entityid = "https://sp.example.com"
+        mock_conf._sp_authn_requests_signed = True
+        mock_conf._sp_signing_algorithm = xmldsig.SIG_RSA_SHA256
+        mock_conf._sp_digest_algorithm = xmldsig.DIGEST_SHA256
+        mock_conf._sp_force_authn = False
+        mock_conf._sp_allow_create = False
+        mock_get_config.return_value = mock_conf
+
+        idp_entity_id = "https://idp.example.com"
+        mock_available_idps.return_value = {idp_entity_id: "Test IdP"}
+        mock_get_bindings.return_value = [saml2.BINDING_HTTP_POST]
+
+        # Mock the Saml2Client instance
+        mock_client = MagicMock()
+        mock_saml2_client_cls.return_value = mock_client
+        mock_client.sso_location.return_value = "https://idp.example.com/sso"
+        mock_client.create_authn_request.return_value = ("session_id_123", "<AuthnRequest/>")
+
+        client = Client()
+        with override_settings(
+            SAML_DEFAULT_BINDING=saml2.BINDING_HTTP_POST,
+            SAML2_CUSTOM_POST_BINDING_FORM_TEMPLATE="djangosaml2/post_binding_form.html",
+        ):
+            client.get(reverse("saml2_login") + "?idp=" + idp_entity_id)
+
+        # Verify create_authn_request was called
+        mock_client.create_authn_request.assert_called_once()
+        call_kwargs = mock_client.create_authn_request.call_args
+        _, kwargs = call_kwargs
+
+        # The key assertion: sign_alg must be present, sigalg must NOT be
+        self.assertIn("sign_alg", kwargs)
+        self.assertEqual(kwargs["sign_alg"], xmldsig.SIG_RSA_SHA256)
+        self.assertNotIn("sigalg", kwargs)
