@@ -14,6 +14,9 @@
 # limitations under the License.
 
 import datetime
+import itertools
+
+_id_counter = itertools.count(1)
 
 
 def auth_response(
@@ -23,6 +26,7 @@ def auth_response(
     acs_url="http://sp.example.com/saml2/acs/",
     metadata_url="http://sp.example.com/saml2/metadata/",
     attribute_statements=None,
+    idp_entity_id="https://idp.example.com/simplesaml/saml2/idp/metadata.php",
 ):
     """Generates a fresh signed authentication response
 
@@ -32,17 +36,19 @@ def auth_response(
             that session.
         uid: Unique identifier for a User (will be present as an attribute in
             the answer). Ignored when attribute_statements is not ``None``.
-        audience: SP entityid (used when PySAML validates the response
+        audience: SP entityid (used when pygamlastan validates the response
             audience).
         acs_url: URL where the response has been posted back.
         metadata_url: URL where the SP metadata can be queried.
         attribute_statements: An alternative XML AttributeStatement to use in
             lieu of the default (uid). The uid argument is ignored when
             attribute_statements is not ``None``.
+        idp_entity_id: Entity ID used as the Response and Assertion issuer.
     """
     timestamp = datetime.datetime.now() - datetime.timedelta(seconds=10)
     tomorrow = datetime.datetime.now() + datetime.timedelta(days=1)
     yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+    message_number = next(_id_counter)
 
     if attribute_statements is None:
         attribute_statements = (
@@ -57,16 +63,16 @@ def auth_response(
 
     saml_response_tpl = (
         "<?xml version='1.0' encoding='UTF-8'?>"
-        '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Destination="%(acs_url)s" ID="id-88b9f586a2a3a639f9327485cc37c40a" InResponseTo="%(session_id)s" IssueInstant="%(timestamp)s" Version="2.0">'
+        '<samlp:Response xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Destination="%(acs_url)s" ID="id-response-%(message_number)s" InResponseTo="%(session_id)s" IssueInstant="%(timestamp)s" Version="2.0">'
         '<saml:Issuer Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">'
-        "https://idp.example.com/simplesaml/saml2/idp/metadata.php"
+        "%(idp_entity_id)s"
         "</saml:Issuer>"
         "<samlp:Status>"
         '<samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" />'
         "</samlp:Status>"
-        '<saml:Assertion ID="id-093952102ceb73436e49cb91c58b0578" IssueInstant="%(timestamp)s" Version="2.0">'
+        '<saml:Assertion ID="id-assertion-%(message_number)s" IssueInstant="%(timestamp)s" Version="2.0">'
         '<saml:Issuer Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">'
-        "https://idp.example.com/simplesaml/saml2/idp/metadata.php"
+        "%(idp_entity_id)s"
         "</saml:Issuer>"
         "<saml:Subject>"
         '<saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient" NameQualifier="" SPNameQualifier="%(metadata_url)s">'
@@ -103,4 +109,6 @@ def auth_response(
         "timestamp": timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "tomorrow": tomorrow.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "yesterday": yesterday.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "message_number": message_number,
+        "idp_entity_id": idp_entity_id,
     }

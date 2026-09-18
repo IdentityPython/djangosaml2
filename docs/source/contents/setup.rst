@@ -4,17 +4,10 @@ Setup
 Prepare Environment and Install Requirements
 ============================================
 
-PySAML2 uses xmlsec1_ binary to sign SAML assertions so you need to install
-it either through your operating system package or by compiling the source
-code. It doesn't matter where the final executable is installed because
-you will need to set the full path to it in the configuration stage.
+You can install the djangosaml2 package using pip. This also installs
+pygamlastan and its dependencies automatically::
 
-.. _xmlsec1: http://www.aleksey.com/xmlsec/
-
-Now you can install the djangosaml2 package using pip. This
-will also install PySAML2 and its dependencies automatically::
-
-  apt install python3-pip xmlsec1 python3-dev libssl-dev libsasl2-dev
+  apt install python3-pip python3-dev
   pip3 install virtualenv
   mkdir djangosaml2_project && cd "$_"
   virtualenv -ppython3 env
@@ -31,8 +24,8 @@ Django project:
 1. **settings.py** as you may already know, it is the main Django
    configuration file.
 2. **urls.py** is the file where you will include djangosaml2 urls.
-3. **pysaml2** specific files such as an attribute map directory and a
-   certificates involved in SAML2 signature and encryption operations.
+3. SAML metadata and the certificates involved in signature and encryption
+   operations.
 
 The first thing you need to do is add ``djangosaml2`` to the list of
 installed apps::
@@ -76,7 +69,8 @@ have the "Secure" attribute, which is required in order to use "SameSite=None", 
   djangosaml2 will by default attempt to set the ``SameSite`` attribute of the SAML session cookie to ``None`` so that it can be
   used in cross-site requests, but this is only possible with Django 3.1 or higher. If you are experiencing issues with
   unsolicited requests or cookies not being sent (particularly when using the HTTP-POST binding), consider upgrading
-  to Django 3.1 or higher. If you can't do that, configure "allow_unsolicited" to True in pySAML2 configuration.
+  to Django 3.1 or higher. If you can't do that, configure ``allow_unsolicited``
+  to ``True`` in the SAML configuration.
 
 Authentication backend
 ======================
@@ -163,7 +157,7 @@ Use the following setting to choose your preferred binding for SP initiated sso 
 
 For example::
 
-  import saml2
+  from pygamlastan.compat import saml2
   SAML_DEFAULT_BINDING = saml2.BINDING_HTTP_POST
 
 Preferred Logout binding
@@ -175,7 +169,7 @@ Use the following setting to choose your preferred binding for SP initiated logo
 
 For example::
 
-  import saml2
+  from pygamlastan.compat import saml2
   SAML_LOGOUT_REQUEST_PREFERRED_BINDING = saml2.BINDING_HTTP_POST
 
 Ignore Logout errors
@@ -250,14 +244,14 @@ We can define the authentication context in settings.SAML_CONFIG['service']['sp'
 Custom and dynamic configuration loading
 ========================================
 
-By default, djangosaml2 reads the pysaml2 configuration options from the
+By default, djangosaml2 reads its pygamlastan compatibility configuration from the
 SAML_CONFIG setting but sometimes you want to read this information from
 another place, like a file or a database. Sometimes you even want this
 configuration to be different depending on the request.
 
 Starting from djangosaml2 0.5.0 you can define your own configuration
 loader which is a callable that accepts a request parameter and returns
-a saml2.config.SPConfig object. In order to do so you set the following
+a ``pygamlastan.compat.saml2.config.SPConfig`` object. In order to do so you set the following
 setting::
 
   SAML_CONFIG_LOADER = 'python.path.to.your.callable'
@@ -484,23 +478,17 @@ Changes in the urls.py file.
       #  more url definitions
   )
 
-PySAML2 specific files and configuration
-----------------------------------------
-Once you have finished configuring your Django project you have to
-start configuring PySAML2, please consult its `official documentation <https://pysaml2.readthedocs.io/en/latest/>`_ before start.
-If you use just that library you have to put your configuration options in a file and initialize PySAML2 with
-the path to that file. In djangosaml2 you just put the same information in the Django
-settings.py file under the SAML_CONFIG option. We will see a typical configuration for protecting a Django project::
+pygamlastan files and configuration
+-----------------------------------
+The pygamlastan compatibility layer reads the established djangosaml2
+configuration shape. Put the configuration in Django's ``settings.py`` under
+the ``SAML_CONFIG`` option. A typical service-provider configuration is::
 
   from os import path
-  import saml2
-  import saml2.saml
+  from pygamlastan.compat import saml2
   BASEDIR = path.dirname(path.abspath(__file__))
 
   SAML_CONFIG = {
-    # full path to the xmlsec1 binary programm
-    'xmlsec_binary': '/usr/bin/xmlsec1',
-
     # your entity id, usually your subdomain plus the url to the metadata view
     'entityid': 'http://localhost:8000/saml2/metadata/',
 
@@ -516,7 +504,7 @@ settings.py file under the SAML_CONFIG option. We will see a typical configurati
         # we are just a lonely SP
         'sp' : {
             'name': 'Federated Django sample SP',
-            'name_id_format': saml2.saml.NAMEID_FORMAT_TRANSIENT,
+            'name_id_policy_format': saml2.saml.NAMEID_FORMAT_TRANSIENT,
 
             # For Okta add signed logout requests. Enable this:
             # "logout_requests_signed": True,
@@ -592,14 +580,9 @@ settings.py file under the SAML_CONFIG option. We will see a typical configurati
             },
         },
 
-    # where the remote metadata is stored, local, remote or mdq server.
-    # One metadatastore or many ...
+    # local files containing trusted IdP metadata
     'metadata': {
         'local': [path.join(BASEDIR, 'remote_metadata.xml')],
-        'remote': [{"url": "https://idp.testunical.it/idp/shibboleth"},],
-        'mdq': [{"url": "https://ds.testunical.it",
-                 "cert": "certficates/others/ds.testunical.it.cert",
-                }]
         },
 
     # set to 1 to output debugging information
@@ -608,12 +591,6 @@ settings.py file under the SAML_CONFIG option. We will see a typical configurati
     # Signing
     'key_file': path.join(BASEDIR, 'private.key'),  # private part
     'cert_file': path.join(BASEDIR, 'public.pem'),  # public part
-
-    # Encryption
-    'encryption_keypairs': [{
-        'key_file': path.join(BASEDIR, 'private.key'),  # private part
-        'cert_file': path.join(BASEDIR, 'public.pem'),  # public part
-    }],
 
     # own metadata settings
     'contact_person': [
@@ -638,18 +615,12 @@ settings.py file under the SAML_CONFIG option. We will see a typical configurati
 
 .. note::
 
-  Please check the `PySAML2 documentation`_ for more information about
-  these and other configuration options.
-
-.. _`PySAML2 documentation`: http://pysaml2.readthedocs.io/en/latest/
+  See the `pygamlastan project <https://github.com/kushaldas/pygamlastan>`_
+  for information about its native SAML implementation and compatibility layer.
 
 
 There are several external files and directories you have to create according
 to this configuration.
-
-The xmlsec1 binary was mentioned in the installation section. Here, in the
-configuration part you just need to put the full path to xmlsec1 so PySAML2
-can call it as it needs.
 
 Signed Logout Request
 =====================
@@ -663,7 +634,7 @@ Attribute Map
 
 The ``attribute_map_dir`` points to a directory with attribute mappings that
 are used to translate user attribute names from several standards. It's usually
-safe to just copy the default PySAML2 attribute maps that you can find in the
+safe to copy the bundled attribute maps that you can find in the
 ``tests/attributemaps`` directory of the source distribution.
 
 Metadata
@@ -697,9 +668,9 @@ SAML2 certificate creation example::
   openssl req -nodes -new -x509 -newkey rsa:2048 -days 3650 -keyout private.key -out public.cert
 
 
-PySAML2 certificates are files, in the form of strings that contains a filesystem path.
+Certificate settings are strings containing filesystem paths.
 What about configuring the certificates in a different way, in case we are using a container based deploy?
 
 - You could supply the cert & key as environment variables (base64 encoded) then create the files when the container starts, either in an entry point shell script or in your settings.py file.
 
-- Using `Python Tempfile <https://docs.python.org/3/library/tempfile.html>`_ In the settings create two temp files, then write the content configured in environment variables in them, then use tmpfile.name as key/cert values in pysaml2 configuration.
+- Using `Python Tempfile <https://docs.python.org/3/library/tempfile.html>`_ In the settings create two temp files, then write the content configured in environment variables in them, then use tmpfile.name as key/cert values in the SAML configuration.

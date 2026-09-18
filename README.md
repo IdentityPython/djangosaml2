@@ -10,8 +10,9 @@ djangosaml2
 ![Django versions](https://img.shields.io/pypi/djversions/djangosaml2)
 
 
-A Django application that builds a Fully Compliant SAML2 Service Provider on top of PySAML2 library.
- Djangosaml2 protects your project with a SAML2 SSO Authentication.
+A Django application that builds a SAML2 Service Provider on top of the
+[pygamlastan](https://github.com/kushaldas/pygamlastan) library.
+Djangosaml2 protects your project with SAML2 SSO authentication.
 
 
 Features:

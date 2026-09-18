@@ -11,7 +11,7 @@ But it need to be replaced by this one::
   'AttributeNameFormat' => 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri'
 
 Otherwise the Assertions sent from the IdP to the SP will have a wrong
-Attribute Name Format and pysaml2 will be confused.
+Attribute Name Format and the SAML parser will reject it.
 
 Furthermore if you have a AttributeLimit filter in your SimpleSAMLphp
 configuration  you will need to enable another attribute filter just
@@ -33,6 +33,8 @@ Okta settings to configure on your Idp's SAML app advanced settings::
 
 Okta sample configuration for setting up an Okta SSO with Django::
 
+        from pygamlastan.compat import saml2
+
         'service': {
         # we are just a lonely SP
         'sp': {
@@ -41,7 +43,7 @@ Okta sample configuration for setting up an Okta SSO with Django::
             'want_assertions_signed': True,  # assertion signing (default=True)
             'want_response_signed': True,
             "want_assertions_or_response_signed": True,  # is response signing required
-            'name_id_format': NAMEID_FORMAT_UNSPECIFIED,
+            'name_id_policy_format': saml2.saml.NAMEID_FORMAT_UNSPECIFIED,
 
             # Must for signed logout requests
             "logout_requests_signed": True,

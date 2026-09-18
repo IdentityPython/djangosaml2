@@ -21,7 +21,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest
 from django.utils.module_loading import import_string
 
-from saml2.config import SPConfig
+from pygamlastan.compat.saml2.config import SPConfig
 
 from .utils import get_custom_setting
 
@@ -40,7 +40,7 @@ def get_config_loader(path: str) -> Callable:
 
 
 def config_settings_loader(request: Optional[HttpRequest] = None) -> SPConfig:
-    """Utility function to load the pysaml2 configuration.
+    """Utility function to load the pygamlastan compatibility configuration.
     The configuration can be modified based on the request being passed.
     This is the default config loader, which just loads the config from the settings.
     """

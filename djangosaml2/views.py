@@ -42,13 +42,16 @@ from django.contrib import auth
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.sites.shortcuts import get_current_site
 
-import saml2
-from saml2.client_base import LogoutError
-from saml2.config import SPConfig
-from saml2.ident import code, decode
-from saml2.mdstore import SourceNotFound
-from saml2.metadata import entity_descriptor
-from saml2.response import (
+from pygamlastan import SamlBindingError
+from pygamlastan import bindings as saml_bindings
+from pygamlastan import xml as saml_xml
+from pygamlastan.compat import saml2
+from pygamlastan.compat.saml2.client_base import LogoutError
+from pygamlastan.compat.saml2.config import SPConfig
+from pygamlastan.compat.saml2.ident import code, decode
+from pygamlastan.compat.saml2.mdstore import SourceNotFound
+from pygamlastan.compat.saml2.metadata import entity_descriptor
+from pygamlastan.compat.saml2.response import (
     RequestVersionTooLow,
     SignatureError,
     StatusAuthnFailed,
@@ -57,11 +60,11 @@ from saml2.response import (
     StatusRequestDenied,
     UnsolicitedResponse,
 )
-from saml2.s_utils import UnsupportedBinding
-from saml2.saml import SCM_BEARER
-from saml2.samlp import AuthnRequest, IDPEntry, IDPList, Scoping
-from saml2.sigver import MissingKey
-from saml2.validate import ResponseLifetimeExceed, ToEarly
+from pygamlastan.compat.saml2.s_utils import UnsupportedBinding
+from pygamlastan.compat.saml2.saml import SCM_BEARER
+from pygamlastan.compat.saml2.samlp import AuthnRequest, IDPEntry, IDPList, Scoping
+from pygamlastan.compat.saml2.sigver import MissingKey
+from pygamlastan.compat.saml2.validate import ResponseLifetimeExceed, ToEarly
 
 from .cache import IdentityCache, OutstandingQueriesCache, StateCache
 from .conf import get_config
@@ -77,6 +80,29 @@ from .utils import (
     get_location,
     validate_referral_url,
 )
+
+
+def _authn_response_request_id(encoded_response):
+    """Return the request ID correlated by an HTTP-POST AuthnResponse."""
+    decoded = saml_bindings.post_decode([("SAMLResponse", encoded_response)])
+    return saml_xml.parse_response(decoded.saml_text).in_response_to
+
+
+def _redirect_signature_kwargs(request, binding):
+    """Preserve detached Redirect signature inputs from Django's raw query."""
+    if binding != saml2.BINDING_HTTP_REDIRECT:
+        return {}
+    decoded = saml_bindings.redirect_decode(request.META.get("QUERY_STRING", ""))
+    if decoded.sig_alg is None and decoded.signature is None:
+        return {}
+    if not decoded.sig_alg or decoded.signature is None or not decoded.signature_input:
+        raise SamlBindingError("incomplete HTTP-Redirect signature parameters")
+    return {
+        "sig_alg": decoded.sig_alg,
+        "signature": base64.b64encode(decoded.signature).decode("ascii"),
+        "signed_query": decoded.signature_input,
+    }
+
 
 logger = logging.getLogger("djangosaml2")
 
@@ -140,14 +166,14 @@ class LoginView(SPConfigMixin, View):
     """SAML Authorization Request initiator.
 
     This view initiates the SAML2 Authorization handshake
-    using the pysaml2 library to create the AuthnRequest.
+    using pygamlastan to create the AuthnRequest.
 
     post_binding_form_template is a path to a template containing HTML form with
     hidden input elements, used to send the SAML message data when HTTP POST
     binding is being used. You can customize this template to include custom
     branding and/or text explaining the automatic redirection process. Please
     see the example template in templates/djangosaml2/example_post_binding_form.html
-    If set to None or nonexistent template, default form from the saml2 library
+    If set to None or nonexistent template, the compatibility layer's default form
     will be rendered.
     """
 
@@ -393,7 +419,7 @@ class LoginView(SPConfigMixin, View):
                     )
 
             if not http_response:
-                # use the html provided by pysaml2 if no template was specified or it doesn't exist
+                # Use the generated HTML if no template was specified or it does not exist.
                 try:
                     session_id, result = client.prepare_for_authenticate(
                         entityid=selected_idp,
@@ -412,7 +438,7 @@ class LoginView(SPConfigMixin, View):
 
         # success, so save the session ID and return our response
         oq_cache = OutstandingQueriesCache(request.saml_session)
-        oq_cache.set(session_id, next_path)
+        oq_cache.set(session_id, next_path, selected_idp)
         logger.debug(
             f'Saving the session_id "{oq_cache.__dict__}" '
             "in the OutstandingQueries cache",
@@ -425,7 +451,7 @@ class LoginView(SPConfigMixin, View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class AssertionConsumerServiceView(SPConfigMixin, View):
-    """The IdP will send its response to this view, which will process it using pysaml2 and
+    """The IdP will send its response to this view, which pygamlastan processes before
     log the user in using whatever SAML authentication backend has been enabled in
     settings.py. The `djangosaml2.backends.Saml2Backend` can be used for this purpose,
     though some implementations may instead register their own subclasses of Saml2Backend.
@@ -481,10 +507,12 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
 
         _exception = None
         try:
+            request_id = _authn_response_request_id(request.POST["SAMLResponse"])
             response = client.parse_authn_request_response(
                 request.POST["SAMLResponse"],
                 saml2.BINDING_HTTP_POST,
                 outstanding_queries,
+                expected_idp=oq_cache.entity_id(request_id),
             )
         except (StatusError, ToEarly) as e:
             _exception = e
@@ -690,7 +718,7 @@ class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
     """SAML Logout Request initiator
 
     This view initiates the SAML2 Logout request
-    using the pysaml2 library to create the LogoutRequest.
+    using pygamlastan to create the LogoutRequest.
     """
 
     def get(self, request, *args, **kwargs):
@@ -769,7 +797,7 @@ class LogoutView(SPConfigMixin, View):
     """SAML Logout Response endpoint
 
     The IdP will send the logout response to this view,
-    which will process it with pysaml2 help and log the user
+    which will process it with pygamlastan and log the user
     out.
     Note that the IdP can request a logout even when
     we didn't initiate the process as a single logout
@@ -796,10 +824,14 @@ class LogoutView(SPConfigMixin, View):
         if "SAMLResponse" in data:  # we started the logout
             logger.debug("Receiving a logout response from the IdP")
             try:
+                signature_kwargs = _redirect_signature_kwargs(request, binding)
                 response = client.parse_logout_request_response(
-                    data["SAMLResponse"], binding
+                    data["SAMLResponse"],
+                    binding,
+                    relay_state=data.get("RelayState"),
+                    **signature_kwargs,
                 )
-            except StatusError as e:
+            except (SamlBindingError, StatusError) as e:
                 response = None
                 logger.warning(
                     f"Error logging out from remote provider: {e}", exc_info=True
@@ -819,12 +851,21 @@ class LogoutView(SPConfigMixin, View):
                 auth.logout(request)
                 return render(request, self.logout_error_template, status=403)
 
-            http_info = client.handle_logout_request(
-                data["SAMLRequest"],
-                subject_id,
-                binding,
-                relay_state=data.get("RelayState", ""),
-            )
+            try:
+                signature_kwargs = _redirect_signature_kwargs(request, binding)
+                http_info = client.handle_logout_request(
+                    data["SAMLRequest"],
+                    subject_id,
+                    binding,
+                    relay_state=data.get("RelayState", ""),
+                    **signature_kwargs,
+                )
+            except (SamlBindingError, ValueError) as e:
+                logger.warning(
+                    f"Invalid logout request from remote provider: {e}",
+                    exc_info=True,
+                )
+                return render(request, self.logout_error_template, status=403)
             state.sync()
             auth.logout(request)
             if (
@@ -893,7 +934,7 @@ class MetadataView(SPConfigMixin, View):
 
 
 def get_namespace_prefixes():
-    from saml2 import md, saml, samlp, xmldsig, xmlenc
+    from pygamlastan.compat.saml2 import md, saml, samlp, xmldsig, xmlenc
 
     return {
         "saml": saml.NAMESPACE,

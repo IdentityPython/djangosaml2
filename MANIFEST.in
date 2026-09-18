@@ -1,6 +1,10 @@
-include README.rst
+include README.md
 include CHANGES
 include COPYING
 global-include *.html *.csr *.key *.pem *.xml
 include djangosaml2/tests/attribute-maps/*.py
+prune env
+prune venv
+prune build
+prune dist
 global-exclude *.pyc

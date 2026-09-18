@@ -15,9 +15,9 @@
 # limitations under the License.
 import base64
 import datetime
-import re
 import sys
 from importlib import import_module
+from pathlib import Path
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
@@ -31,12 +31,15 @@ from django.urls import reverse, reverse_lazy
 from django.contrib.auth import SESSION_KEY, get_user_model
 from django.contrib.auth.models import AnonymousUser
 
-from saml2.config import SPConfig
-from saml2.s_utils import (
+from pygamlastan.bindings import redirect_encode
+from pygamlastan.compat.saml2.config import SPConfig
+from pygamlastan.compat.saml2.s_utils import (
     UnknownSystemEntity,
     decode_base64_and_inflate,
     deflate_and_base64_encode,
 )
+from pygamlastan.crypto import SamlSigner
+from pygamlastan.xml import parse_logout_request
 
 from djangosaml2 import views
 from djangosaml2.cache import OutstandingQueriesCache
@@ -145,6 +148,27 @@ class SAML2Tests(TestCase):
 
     def b64_for_post(self, xml_text, encoding="utf-8"):
         return base64.b64encode(xml_text.encode(encoding)).decode("ascii")
+
+    def signed_redirect(self, xml_text, is_request, relay_state=None):
+        """Return a Redirect-binding URL signed by the test IdP."""
+        key_path = Path(__file__).with_name("idpcert.key")
+        signer = SamlSigner.from_pem(key_path.read_bytes())
+        return redirect_encode(
+            xml_text.encode("utf-8"),
+            is_request,
+            "http://sp.example.com/saml2/ls/",
+            relay_state=relay_state,
+            signer=signer,
+            sig_alg=signer.signature_method_uri(),
+        )
+
+    def idp_certificate_der(self):
+        """Return the DER certificate matching the test IdP signing key."""
+        certificate = Path(__file__).with_name("idpcert.pem").read_text()
+        encoded = "".join(
+            line for line in certificate.splitlines() if not line.startswith("-----")
+        )
+        return base64.b64decode(encoded)
 
     def test_get_idp_sso_supported_bindings_noargs(self):
         settings.SAML_CONFIG = conf.create_conf(
@@ -431,6 +455,28 @@ class SAML2Tests(TestCase):
             decode_base64_and_inflate(saml_request).decode("utf-8"),
         )
 
+        session_id = get_session_id_from_saml2(
+            decode_base64_and_inflate(saml_request).decode("utf-8")
+        )
+        selected_idp = "https://idp2.example.com/simplesaml/saml2/idp/metadata.php"
+        saml_response = auth_response(
+            session_id,
+            "multi-idp-user",
+            idp_entity_id=selected_idp,
+        )
+        response = self.client.post(
+            reverse("saml2_acs"),
+            {
+                "SAMLResponse": self.b64_for_post(saml_response),
+                "RelayState": "/",
+            },
+        )
+        self.assertRedirects(response, "/", fetch_redirect_response=False)
+        self.assertEqual(
+            User.objects.get(id=self.client.session[SESSION_KEY]).username,
+            "multi-idp-user",
+        )
+
     @override_settings(ACS_DEFAULT_REDIRECT_URL="testprofiles:dashboard")
     def test_assertion_consumer_service(self):
         # Get initial number of users
@@ -711,6 +757,7 @@ class SAML2Tests(TestCase):
             sp_host="sp.example.com",
             idp_hosts=["idp.example.com"],
             metadata_file="remote_metadata_one_idp.xml",
+            sp_kwargs={"want_logout_response_signed": True},
         )
 
         self.do_login()
@@ -725,6 +772,7 @@ class SAML2Tests(TestCase):
 
         params = parse_qs(url.query)
         self.assertIn("SAMLRequest", params)
+        relay_state = params["RelayState"][0]
 
         saml_request = params["SAMLRequest"][0]
 
@@ -734,10 +782,10 @@ class SAML2Tests(TestCase):
             "Not a valid LogoutRequest",
         )
 
-        # now simulate a logout response sent by the idp
-        expected_request = """<samlp:LogoutRequest xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="XXXXXXXXXXXXXXXXXXXXXX" Version="2.0" Destination="https://idp.example.com/simplesaml/saml2/idp/SingleLogoutService.php" Reason=""><saml:Issuer Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">http://sp.example.com/saml2/metadata/</saml:Issuer><saml:NameID SPNameQualifier="http://sp.example.com/saml2/metadata/" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">1f87035b4c1325b296a53d92097e6b3fa36d7e30ee82e3fcb0680d60243c1f03</saml:NameID><samlp:SessionIndex>a0123456789abcdef0123456789abcdef</samlp:SessionIndex></samlp:LogoutRequest>"""
-
-        request_id = re.findall(r' ID="(.*?)" ', expected_request)[0]
+        # now simulate a signed, correlated logout response sent by the IdP
+        request_id = parse_logout_request(
+            decode_base64_and_inflate(saml_request).decode("utf-8")
+        ).id
         instant = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
         saml_response = """<?xml version='1.0' encoding='UTF-8'?>
@@ -745,12 +793,14 @@ class SAML2Tests(TestCase):
             request_id, instant
         )
 
-        response = self.client.get(
-            reverse("saml2_ls"),
-            {
-                "SAMLResponse": deflate_and_base64_encode(saml_response),
-            },
-        )
+        with mock.patch.object(
+            SPConfig,
+            "idp_signing_certs",
+            return_value=[self.idp_certificate_der()],
+        ):
+            response = self.client.get(
+                self.signed_redirect(saml_response, False, relay_state=relay_state)
+            )
         self.assertContains(response, "Logged out", status_code=200)
         self.assertListEqual(list(self.client.session.keys()), [])
 
@@ -763,19 +813,18 @@ class SAML2Tests(TestCase):
 
         subject_id = self.do_login()
         # now simulate a global logout process initiated by another SP
-        subject_id = views._get_subject_id(self.saml_session)
         instant = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
         saml_request = """<?xml version='1.0' encoding='UTF-8'?>
-<samlp:LogoutRequest xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="_9961abbaae6d06d251226cb25e38bf8f468036e57e" Version="2.0" IssueInstant="{}" Destination="http://sp.example.com/saml2/ls/"><saml:Issuer>https://idp.example.com/simplesaml/saml2/idp/metadata.php</saml:Issuer><saml:NameID SPNameQualifier="http://sp.example.com/saml2/metadata/" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">{}</saml:NameID><samlp:SessionIndex>_1837687b7bc9faad85839dbeb319627889f3021757</samlp:SessionIndex></samlp:LogoutRequest>""".format(
+<samlp:LogoutRequest xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="_9961abbaae6d06d251226cb25e38bf8f468036e57e" Version="2.0" IssueInstant="{}" Destination="http://sp.example.com/saml2/ls/"><saml:Issuer>https://idp.example.com/simplesaml/saml2/idp/metadata.php</saml:Issuer><saml:NameID NameQualifier="" SPNameQualifier="http://sp.example.com/saml2/metadata/" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">{}</saml:NameID><samlp:SessionIndex>_1837687b7bc9faad85839dbeb319627889f3021757</samlp:SessionIndex></samlp:LogoutRequest>""".format(
             instant, subject_id
         )
 
-        response = self.client.get(
-            reverse("saml2_ls"),
-            {
-                "SAMLRequest": deflate_and_base64_encode(saml_request),
-            },
-        )
+        with mock.patch.object(
+            SPConfig,
+            "idp_signing_certs",
+            return_value=[self.idp_certificate_der()],
+        ):
+            response = self.client.get(self.signed_redirect(saml_request, True))
         self.assertEqual(response.status_code, 302)
         location = response["Location"]
 
@@ -799,6 +848,7 @@ class SAML2Tests(TestCase):
             sp_host="sp.example.com",
             idp_hosts=["idp.example.com"],
             metadata_file="remote_metadata_one_idp.xml",
+            sp_kwargs={"want_logout_response_signed": True},
         )
 
         self.do_login()
@@ -806,10 +856,10 @@ class SAML2Tests(TestCase):
         response = self.client.get(reverse("saml2_logout"))
         self.assertEqual(response.status_code, 302)
 
-        # now simulate a logout response sent by the idp
-        expected_request = """<samlp:LogoutRequest xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="XXXXXXXXXXXXXXXXXXXXXX" Version="2.0" Destination="https://idp.example.com/simplesaml/saml2/idp/SingleLogoutService.php" Reason=""><saml:Issuer Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity">http://sp.example.com/saml2/metadata/</saml:Issuer><saml:NameID SPNameQualifier="http://sp.example.com/saml2/metadata/" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">1f87035b4c1325b296a53d92097e6b3fa36d7e30ee82e3fcb0680d60243c1f03</saml:NameID><samlp:SessionIndex>a0123456789abcdef0123456789abcdef</samlp:SessionIndex></samlp:LogoutRequest>"""
-
-        request_id = re.findall(r' ID="(.*?)" ', expected_request)[0]
+        # now simulate a signed, correlated logout response sent by the IdP
+        relay_state = parse_qs(urlparse(response.url).query)["RelayState"][0]
+        logout_request = saml2_from_httpredirect_request(response.url)
+        request_id = parse_logout_request(logout_request.decode("utf-8")).id
         instant = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
         saml_response = """<?xml version='1.0' encoding='UTF-8'?>
@@ -817,12 +867,14 @@ class SAML2Tests(TestCase):
             request_id, instant
         )
 
-        response = self.client.get(
-            reverse("saml2_ls"),
-            {
-                "SAMLResponse": deflate_and_base64_encode(saml_response),
-            },
-        )
+        with mock.patch.object(
+            SPConfig,
+            "idp_signing_certs",
+            return_value=[self.idp_certificate_der()],
+        ):
+            response = self.client.get(
+                self.signed_redirect(saml_response, False, relay_state=relay_state)
+            )
         self.assertRedirects(response, "/dashboard/")
         self.assertListEqual(list(self.client.session.keys()), [])
 

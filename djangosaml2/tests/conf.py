@@ -15,7 +15,7 @@
 
 import os.path
 
-import saml2
+from pygamlastan.compat import saml2
 
 
 def create_conf(
@@ -28,25 +28,14 @@ def create_conf(
     if idp_hosts is None:
         idp_hosts = ["idp.example.com"]
 
-    try:
-        from saml2.sigver import get_xmlsec_binary
-    except ImportError:
-        get_xmlsec_binary = None
-
-    if get_xmlsec_binary:
-        xmlsec_path = get_xmlsec_binary(["/opt/local/bin"])
-    else:
-        xmlsec_path = "/usr/bin/xmlsec1"
-
     BASEDIR = os.path.dirname(os.path.abspath(__file__))
     config = {
-        "xmlsec_binary": xmlsec_path,
         "entityid": "http://%s/saml2/metadata/" % sp_host,
         "attribute_map_dir": os.path.join(BASEDIR, "attribute-maps"),
         "service": {
             "sp": {
                 "name": "Test SP",
-                "name_id_format": saml2.saml.NAMEID_FORMAT_PERSISTENT,
+                "name_id_policy_format": saml2.saml.NAMEID_FORMAT_PERSISTENT,
                 "endpoints": {
                     "assertion_consumer_service": [
                         ("http://%s/saml2/acs/" % sp_host, saml2.BINDING_HTTP_POST),

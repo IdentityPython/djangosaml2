@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from saml2.cache import Cache
+from pygamlastan.compat.saml2.cache import Cache
 
 
 class DjangoSessionCacheAdapter(dict):
@@ -52,11 +52,24 @@ class OutstandingQueriesCache:
         self._db = DjangoSessionCacheAdapter(django_session, "_outstanding_queries")
 
     def outstanding_queries(self):
-        return self._db._get_objects()
+        """Return the legacy request-to-return-URL mapping expected by clients."""
+        return {
+            request_id: (value.get("came_from") if isinstance(value, dict) else value)
+            for request_id, value in self._db._get_objects().items()
+        }
 
-    def set(self, saml2_session_id, came_from):
-        self._db[saml2_session_id] = came_from
+    def set(self, saml2_session_id, came_from, entity_id=None):
+        """Persist return and IdP correlation data for an AuthnRequest."""
+        self._db[saml2_session_id] = {
+            "came_from": came_from,
+            "entity_id": entity_id,
+        }
         self._db.sync()
+
+    def entity_id(self, saml2_session_id):
+        """Return the IdP selected for an outstanding AuthnRequest."""
+        value = self._db._get_objects().get(saml2_session_id)
+        return value.get("entity_id") if isinstance(value, dict) else None
 
     def delete(self, saml2_session_id):
         if saml2_session_id in self._db:

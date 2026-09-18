@@ -1,14 +1,14 @@
 [tool.black]
 force-exclude = '''/(migrations)/'''
-target-version = ["py39"]
+target-version = ["py310"]
 
 [tool.isort]
 src_paths = ["djangosaml2", "tests"]
 profile = "black"
 known_django = ["django"]
 known_contrib = ["django.contrib"]
-known_saml2 = ["saml2"]
+known_pygamlastan = ["pygamlastan"]
 known_first_party = ["djangosaml2"]
 known_tests = ["tests"]
-sections = ["FUTURE", "STDLIB", "DJANGO", "CONTRIB", "THIRDPARTY", "SAML2", "FIRSTPARTY", "TESTS", "LOCALFOLDER"]
+sections = ["FUTURE", "STDLIB", "DJANGO", "CONTRIB", "THIRDPARTY", "PYGAMLASTAN", "FIRSTPARTY", "TESTS", "LOCALFOLDER"]
 skip_glob = ["**/migrations/*.py"]
