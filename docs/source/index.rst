@@ -2,7 +2,7 @@ Welcome to Djangosaml2's Documentation
 ======================================
 
 A Django application that builds a fully compliant SAML2 Service Provider on top of
-`PySAML2 <https://github.com/IdentityPython/pysaml2>`_ library.
+the `pygamlastan <https://github.com/kushaldas/pygamlastan>`_ library.
 Djangosaml2 protects your project with a SAML2 SSO Authentication, supporting features like
 **HTTP-REDIRECT** and **HTTP-POST SSO Binding**, **Single logout**,
 **Discovery Service**, **Wayf page** with customizable html template,

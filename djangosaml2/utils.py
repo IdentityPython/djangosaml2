@@ -17,8 +17,8 @@ import re
 import urllib
 import zlib
 from functools import lru_cache, wraps
+from importlib.metadata import PackageNotFoundError, version
 from typing import Optional
-from importlib.metadata import version, PackageNotFoundError
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -28,9 +28,9 @@ from django.urls import NoReverseMatch
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.module_loading import import_string
 
-from saml2.config import SPConfig
-from saml2.mdstore import MetaDataMDX
-from saml2.s_utils import UnknownSystemEntity
+from pygamlastan.compat.saml2.config import SPConfig
+from pygamlastan.compat.saml2.mdstore import MetaDataMDX
+from pygamlastan.compat.saml2.s_utils import UnknownSystemEntity
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def get_idp_sso_supported_bindings(
     idp_entity_id: Optional[str] = None, config: Optional[SPConfig] = None
 ) -> list:
     """Returns the list of bindings supported by an IDP
-    This is not clear in the pysaml2 code, so wrapping it in a util"""
+    The compatibility metadata API returns this shape, so wrap it in a util."""
     if config is None:
         # avoid circular import
         from .conf import get_config
@@ -87,7 +87,7 @@ def get_idp_sso_supported_bindings(
 
 
 def get_location(http_info):
-    """Extract the redirect URL from a pysaml2 http_info object"""
+    """Extract the redirect URL from a SAML binding response mapping."""
     try:
         headers = dict(http_info["headers"])
         return headers["Location"]
@@ -151,8 +151,9 @@ def get_session_id_from_saml2(saml2_xml):
 
 
 def get_subject_id_from_saml2(saml2_xml):
+    """Return the text value of the first NameID in a SAML message."""
     saml2_xml = saml2_xml if isinstance(saml2_xml, str) else saml2_xml.decode()
-    re.findall('">([a-z0-9]+)</saml:NameID>', saml2_xml)[0]
+    return re.findall('">([a-z0-9]+)</saml:NameID>', saml2_xml)[0]
 
 
 def add_param_in_url(url: str, param_key: str, param_value: str):
@@ -240,7 +241,6 @@ def _django_csp_update_decorator():
     """Returns a view CSP decorator if django-csp is available, otherwise None."""
     try:
         from csp.decorators import csp_update
-        import csp
     except ModuleNotFoundError:
         # If csp is not installed, do not update fields as Content-Security-Policy
         # is not used
@@ -258,8 +258,8 @@ def _django_csp_update_decorator():
         # form-action https: to send data to IdPs
         # Check django-csp version to determine the appropriate format
         try:
-            csp_version = version('django-csp')
-            major_version = int(csp_version.split('.')[0])
+            csp_version = version("django-csp")
+            major_version = int(csp_version.split(".")[0])
 
             # Version detection successful
             if major_version >= 4:
@@ -267,7 +267,13 @@ def _django_csp_update_decorator():
                 return csp_update(config={"form-action": ["https:"]})
             # django-csp < 4.0 uses kwargs format
             return csp_update(FORM_ACTION=["https:"])
-        except (PackageNotFoundError, ValueError, RuntimeError, AttributeError, IndexError):
+        except (
+            PackageNotFoundError,
+            ValueError,
+            RuntimeError,
+            AttributeError,
+            IndexError,
+        ):
             # Version detection failed, we need to try both formats
             # Try v4.0+ style first because:
             # 1. It has better error handling with clear messages
