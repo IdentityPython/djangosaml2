@@ -61,6 +61,12 @@ setup(
     packages=find_packages(exclude=["tests", "tests.*"]),
     include_package_data=True,
     zip_safe=False,
-    install_requires=["defusedxml>=0.4.1", "Django>=5.2.17", "pysaml2>=6.5.1"],
+    install_requires=[
+        "defusedxml>=0.4.1",
+        "Django>=5.2.17",
+        "pysaml2>=7.5.5",
+        "cryptography>=50.0.0",
+        "pyopenssl>=26.4.0",
+    ],
     python_requires=">=3.10",
 )
