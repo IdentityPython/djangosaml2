@@ -444,6 +444,24 @@ Learn more about Django profile models at:
 https://docs.djangoproject.com/en/dev/topics/auth/customizing/#substituting-a-custom-user-model
 
 
+Email from the identity provider
+--------------------------------
+
+``required_attributes`` is published in the service provider metadata as ``RequestedAttribute`` with ``isRequired="true"``.
+``optional_attributes`` is published as ``RequestedAttribute`` without that flag.
+The configuration example lists ``mail`` in ``required_attributes``.
+The assertion consumer receives the attributes the identity provider releases.
+``SAML_ATTRIBUTE_MAPPING`` maps ``mail`` onto the Django ``email`` field.
+
+``name_id_format`` set to ``saml2.saml.NAMEID_FORMAT_EMAILADDRESS`` requests an email subject.
+``required_attributes`` remains available when the identity provider issues a transient or persistent identifier.
+
+The address entered before the redirect stays in the Django session.
+``get_or_create_user`` receives that request together with the assertion attributes.
+A ``Saml2Backend`` subclass compares the session value with the first entry of ``attributes['mail']``.
+Returning ``None, False`` stops the login.
+
+
 Custom user attributes processing
 ---------------------------------
 
