@@ -325,7 +325,24 @@ was authenticated. It depends on the IdP configuration what exact
 attributes are sent to each SP it can talk to.
 
 When such assertion is received on the Django side it is used to find a Django
-user and create a session for it. By default djangosaml2 will do a query on the
+user and create a session for it.
+
+By default the backend loads the user model from ``AUTH_USER_MODEL``.
+Set ``SAML_USER_MODEL`` to name that model explicitly::
+
+  SAML_USER_MODEL = 'myapp.User'
+
+The value is ``app_label.ModelName``.
+An unknown model or a value in any other form raises ``ImproperlyConfigured``.
+The backend looks up and creates users of this model.
+The lookup field is ``SAML_DJANGO_USER_MAIN_ATTRIBUTE``, the model's
+``USERNAME_FIELD``, or ``username``.
+A new user is constructed with that field.
+``set_unusable_password()`` is then called on it.
+Django restores the session from ``AUTH_USER_MODEL``.
+Set ``SAML_USER_MODEL`` to that same model.
+
+By default djangosaml2 will do a query on the
 User model with the USERNAME_FIELD_ attribute but you can change it to any
 other attribute of the User model. For example, you can do this lookup using
 the 'email' attribute. In order to do so you should set the following setting::
