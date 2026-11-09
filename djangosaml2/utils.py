@@ -216,7 +216,7 @@ def get_csp_handler():
     csp_handler_string = get_custom_setting("SAML_CSP_HANDLER", None)
 
     if csp_handler_string is None:
-        # No CSP handler configured, attempt django-csp first, then Django native CSP
+        # django-csp is tried first. Django's built-in CSP is the fallback.
         handler = _django_csp_update_decorator() or _django_native_csp_decorator()
         if handler:
             return handler
@@ -248,10 +248,26 @@ def get_csp_handler():
     return empty_view_decorator
 
 
+def _form_action_with_https(config):
+    """Return a copy of a CSP mapping that allows HTTPS form posts."""
+    if not config:
+        return None
+    merged = dict(config)
+    sources = merged.get("form-action", [])
+    if isinstance(sources, str):
+        sources = [sources]
+    else:
+        sources = list(sources)
+    if "https:" not in sources:
+        sources.append("https:")
+    merged["form-action"] = sources
+    return merged
+
+
 def _django_native_csp_decorator():
-    """Returns a view CSP decorator if Django's built-in CSP (6.0+) is configured, otherwise None."""
+    """Return a decorator when Django's built-in CSP middleware is configured."""
     try:
-        from django.views.decorators.csp import csp_override
+        from django.views.decorators.csp import csp_override, csp_report_only_override
     except ImportError:
         return None
 
@@ -259,22 +275,29 @@ def _django_native_csp_decorator():
     if "django.middleware.csp.ContentSecurityPolicyMiddleware" not in middleware:
         return None
 
-    csp_config = dict(getattr(settings, "SECURE_CSP", None) or {})
-    form_action = list(csp_config.get("form-action", []))
-    if "https:" not in form_action:
-        form_action.append("https:")
-    csp_config["form-action"] = form_action
+    enforce = _form_action_with_https(getattr(settings, "SECURE_CSP", None))
+    report_only = _form_action_with_https(
+        getattr(settings, "SECURE_CSP_REPORT_ONLY", None)
+    )
+    if enforce is None and report_only is None:
+        return None
 
-    return csp_override(csp_config)
+    def decorator(view):
+        if enforce is not None:
+            view = csp_override(enforce)(view)
+        if report_only is not None:
+            view = csp_report_only_override(report_only)(view)
+        return view
+
+    return decorator
 
 
 def _django_csp_update_decorator():
     """Returns a view CSP decorator if django-csp is available, otherwise None."""
     try:
         from csp.decorators import csp_update
-        import csp
     except ModuleNotFoundError:
-        return
+        return None
     else:
         # autosubmit of forms uses nonce per default
         # form-action https: to send data to IdPs

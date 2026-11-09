@@ -1,4 +1,4 @@
-<script type="text/javascript"{% if request.csp_nonce %} nonce="{{ request.csp_nonce }}"{% endif %}>
+<script type="text/javascript"{% if request.csp_nonce %} nonce="{{ request.csp_nonce }}"{% else %}{% with nonce=csp_nonce|stringformat:"s" %}{% if nonce %} nonce="{{ nonce }}"{% endif %}{% endwith %}{% endif %}>
 	window.onload = function() {
 		document.SSO_Login.submit();
 	};

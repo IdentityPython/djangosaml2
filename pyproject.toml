@@ -1,6 +1,6 @@
 [tool.black]
 force-exclude = '''/(migrations)/'''
-target-version = ["py39"]
+target-version = ["py310"]
 
 [tool.isort]
 src_paths = ["djangosaml2", "tests"]

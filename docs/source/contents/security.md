@@ -19,8 +19,8 @@ When using POST-Bindings, the Browser is presented with a small HTML-Form for
 every redirect (both Login and Logout), which is sent using JavaScript and
 sends the Data to the selected IdP. If your application uses technices such as
 Content Security Policy, this might affect the calls. Since Version 1.9.0
-djangosaml2 will detect if django-csp is installed and update the Content
-Security Policy accordingly.
+djangosaml2 detects an installed CSP integration and updates the Content
+Security Policy for those responses.
 
 [Content Security Policy](https://content-security-policy.com/) is an important
 HTTP-Extension to prevent User Input or other harmful sources from manipulating
@@ -33,6 +33,14 @@ and [configuration](https://django-csp.readthedocs.io/en/latest/configuration.ht
 guides: djangosaml2 will automatically blend in and update the headers for
 POST-bindings, so you must not include exceptions for djangosaml2 in your
 global configuration.
+
+Django 6.0 and later provide the same behavior through
+`django.middleware.csp.ContentSecurityPolicyMiddleware`. When django-csp is not
+installed and that middleware is in `MIDDLEWARE`, djangosaml2 reads `SECURE_CSP`
+and `SECURE_CSP_REPORT_ONLY`, adds `https:` to `form-action`, and applies the
+result to the POST binding responses. Add `django.template.context_processors.csp`
+so the autosubmit script receives `csp_nonce`. If both integrations are
+configured, django-csp is used.
 
 Note that to enable autosubmit of post-bindings inline-javascript is used. To
 allow execution of this autosubmit-code a nonce is included, which works in

@@ -14,8 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import patch
+
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.http import HttpRequest, HttpResponse
+from django.template.loader import render_to_string
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -569,13 +573,9 @@ class CSPHandlerTests(TestCase):
         with override_settings(SAML_CSP_HANDLER=None):
             csp_handler = get_csp_handler()
             self.assertIn(
-                csp_handler.__module__,
-                ["csp.decorators", "django.views.decorators.csp", "djangosaml2.utils"],
+                csp_handler.__module__, ["csp.decorators", "djangosaml2.utils"]
             )
-            self.assertIn(
-                csp_handler.__name__,
-                ["decorator", "_wrapped_view", "empty_view_decorator"],
-            )
+            self.assertIn(csp_handler.__name__, ["decorator", "empty_view_decorator"])
 
     def test_get_csp_handler_empty(self):
         get_csp_handler.cache_clear()
@@ -599,71 +599,123 @@ class CSPHandlerTests(TestCase):
             with self.assertRaises(ImportError):
                 get_csp_handler()
 
-    def test_get_csp_handler_django_native_csp(self):
-        """Test that Django's built-in CSP (6.0+) is detected when configured."""
+    def _require_native_csp(self):
         try:
-            from django.views.decorators.csp import csp_override  # noqa: F401
+            from django.middleware.csp import ContentSecurityPolicyMiddleware
         except ImportError:
-            self.skipTest("Django native CSP not available (requires Django 6.0+)")
+            self.skipTest("Django native CSP requires Django 6.0+")
+        return ContentSecurityPolicyMiddleware
 
-        get_csp_handler.cache_clear()
-        middleware = list(settings.MIDDLEWARE) + [
-            "django.middleware.csp.ContentSecurityPolicyMiddleware",
-        ]
-        with override_settings(
-            SAML_CSP_HANDLER=None,
-            MIDDLEWARE=middleware,
-            SECURE_CSP={"default-src": ["'self'"]},
+    def _response_through_csp_middleware(self, handler, middleware_class):
+        @handler
+        def dummy_view(request):
+            return HttpResponse("test")
+
+        middleware = middleware_class(lambda request: HttpResponse())
+        request = HttpRequest()
+        middleware.process_request(request)
+        response = dummy_view(request)
+        return middleware.process_response(request, response)
+
+    def _native_csp_handler(self, middleware, **settings_overrides):
+        settings_overrides.setdefault("SAML_CSP_HANDLER", None)
+        settings_overrides["MIDDLEWARE"] = list(settings.MIDDLEWARE) + [middleware]
+        with patch(
+            "djangosaml2.utils._django_csp_update_decorator", return_value=None
         ):
-            csp_handler = get_csp_handler()
-            self.assertEqual(csp_handler.__module__, "django.views.decorators.csp")
+            with override_settings(**settings_overrides):
+                get_csp_handler.cache_clear()
+                return get_csp_handler()
 
     def test_get_csp_handler_django_native_csp_merges_form_action(self):
-        """Test that form-action https: is merged into existing SECURE_CSP."""
-        try:
-            from django.views.decorators.csp import csp_override  # noqa: F401
-        except ImportError:
-            self.skipTest("Django native CSP not available (requires Django 6.0+)")
-
-        get_csp_handler.cache_clear()
-        middleware = list(settings.MIDDLEWARE) + [
+        middleware_class = self._require_native_csp()
+        handler = self._native_csp_handler(
             "django.middleware.csp.ContentSecurityPolicyMiddleware",
-        ]
-        with override_settings(
-            SAML_CSP_HANDLER=None,
-            MIDDLEWARE=middleware,
             SECURE_CSP={"default-src": ["'self'"], "form-action": ["'self'"]},
-        ):
-            csp_handler = get_csp_handler()
-            # Apply the decorator to a dummy view and call it
-            from django.http import HttpRequest, HttpResponse
+        )
+        response = self._response_through_csp_middleware(handler, middleware_class)
+        header = response.headers["Content-Security-Policy"]
+        self.assertIn("form-action 'self' https:", header)
+        self.assertIn("default-src 'self'", header)
+        self.assertNotIn(
+            "Content-Security-Policy-Report-Only", response.headers
+        )
 
-            @csp_handler
-            def dummy_view(request):
-                return HttpResponse("test")
+    def test_get_csp_handler_django_native_csp_keeps_existing_https(self):
+        middleware_class = self._require_native_csp()
+        handler = self._native_csp_handler(
+            "django.middleware.csp.ContentSecurityPolicyMiddleware",
+            SECURE_CSP={"form-action": ["https:"]},
+        )
+        response = self._response_through_csp_middleware(handler, middleware_class)
+        header = response.headers["Content-Security-Policy"]
+        self.assertIn("form-action https:", header)
+        self.assertEqual(header.split("form-action", 1)[1].count("https:"), 1)
 
-            request = HttpRequest()
-            request.method = "GET"
-            response = dummy_view(request)
-            csp_header = response.headers.get("Content-Security-Policy", "")
-            self.assertIn("form-action", csp_header)
-            self.assertIn("https:", csp_header)
-            self.assertIn("'self'", csp_header)
+    def test_get_csp_handler_django_native_csp_report_only(self):
+        middleware_class = self._require_native_csp()
+        handler = self._native_csp_handler(
+            "django.middleware.csp.ContentSecurityPolicyMiddleware",
+            SECURE_CSP_REPORT_ONLY={
+                "default-src": ["'self'"],
+                "form-action": ["'self'"],
+            },
+        )
+        response = self._response_through_csp_middleware(handler, middleware_class)
+        header = response.headers["Content-Security-Policy-Report-Only"]
+        self.assertIn("form-action 'self' https:", header)
+        self.assertNotIn("Content-Security-Policy", response.headers)
 
     def test_get_csp_handler_django_native_csp_no_middleware(self):
-        """Test that Django native CSP is skipped when middleware is not configured."""
-        try:
-            from django.views.decorators.csp import csp_override  # noqa: F401
-        except ImportError:
-            self.skipTest("Django native CSP not available (requires Django 6.0+)")
+        self._require_native_csp()
+        with patch(
+            "djangosaml2.utils._django_csp_update_decorator", return_value=None
+        ):
+            with override_settings(SAML_CSP_HANDLER=None):
+                get_csp_handler.cache_clear()
+                handler = get_csp_handler()
+        self.assertEqual(handler.__name__, "empty_view_decorator")
 
-        get_csp_handler.cache_clear()
-        # Default test MIDDLEWARE doesn't include CSP middleware
-        with override_settings(SAML_CSP_HANDLER=None):
-            csp_handler = get_csp_handler()
-            # Without django-csp and without native CSP middleware, falls back to empty
-            try:
-                import csp  # noqa: F401
-                # django-csp is installed, it will be used instead
-            except ImportError:
-                self.assertEqual(csp_handler.__name__, "empty_view_decorator")
+    def test_post_binding_form_uses_django_csp_nonce(self):
+        request = HttpRequest()
+        request.csp_nonce = "django-csp-nonce"
+        html = render_to_string(
+            "djangosaml2/post_binding_form.html",
+            {
+                "target_url": "https://idp.example.org/sso",
+                "params": {},
+                "request": request,
+            },
+        )
+        self.assertIn('nonce="django-csp-nonce"', html)
+
+    def test_post_binding_form_uses_django_native_nonce(self):
+        try:
+            from django.utils.csp import LazyNonce
+        except ImportError:
+            self.skipTest("Django native CSP requires Django 6.0+")
+        request = HttpRequest()
+        html = render_to_string(
+            "djangosaml2/post_binding_form.html",
+            {
+                "target_url": "https://idp.example.org/sso",
+                "params": {},
+                "request": request,
+                "csp_nonce": LazyNonce(),
+            },
+        )
+        self.assertIn("nonce=", html)
+        self.assertNotIn('nonce=""', html)
+        self.assertNotIn("nonce=\"<CSP_NONCE_SENTINEL>\"", html)
+
+    def test_post_binding_form_omits_nonce_without_csp(self):
+        request = HttpRequest()
+        html = render_to_string(
+            "djangosaml2/post_binding_form.html",
+            {
+                "target_url": "https://idp.example.org/sso",
+                "params": {},
+                "request": request,
+            },
+        )
+        self.assertNotIn("nonce=", html)

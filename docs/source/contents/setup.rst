@@ -290,8 +290,14 @@ djangosaml2 provides a hook 'is_authorized' for the SP to store assertion IDs an
 
 CSP Configuration
 =================
-By default djangosaml2 will use `django-csp <https://django-csp.readthedocs.io>`_ 
-to configure CSP if available otherwise a warning will be logged.
+By default djangosaml2 updates the Content-Security-Policy of the POST binding
+views. It uses `django-csp <https://django-csp.readthedocs.io>`_ when that
+package is installed. On Django 6.0 and later, if django-csp is not installed
+and ``django.middleware.csp.ContentSecurityPolicyMiddleware`` is in
+``MIDDLEWARE``, djangosaml2 reads ``SECURE_CSP`` and ``SECURE_CSP_REPORT_ONLY``
+and adds ``https:`` to ``form-action``. Enable
+``django.template.context_processors.csp`` so the autosubmit script receives
+``csp_nonce``. If neither integration is available, a warning is logged.
 
 The warning can be disabled by setting::
 
@@ -307,7 +313,9 @@ A custom handler can similary be specified::
       response.headers['Content-Security-Policy'] = ...
       return response
 
-A value of `None` is the default and will use `django-csp <https://django-csp.readthedocs.io>`_ if available.
+A value of `None` is the default. django-csp is used when it is installed.
+Django's built-in CSP is used when its middleware is configured and django-csp
+is not installed.
 
 
 Users, attributes and account linking
