@@ -514,6 +514,43 @@ Keep in mind save_user is only called when there was a reason to save the User m
 .. _hooks: https://github.com/identitypython/djangosaml2/blob/master/djangosaml2/backends.py#L181
 
 
+Signals and view hooks
+----------------------
+
+A subclass of ``Saml2Backend`` or ``AssertionConsumerServiceView`` changes the authentication behavior.
+A signal receiver runs beside that subclass.
+Connect the receiver from an ``AppConfig.ready`` method.
+
+``pre_user_save`` is sent before the user is saved.
+The sender is the user model.
+``instance`` is the user.
+``attributes`` is the assertion attribute dictionary.
+``user_modified`` is true when the user is new or a mapped attribute changed.
+A receiver that returns a true value causes the save.
+
+``post_user_save`` is sent after that save.
+It carries ``instance`` and ``attributes``.
+The sender is the user model.
+
+``authenticate`` is sent when the backend accepts or refuses the assertion.
+The sender is the backend class.
+``request`` is the Django request.
+``is_authorized`` reports the result of ``is_authorized``.
+``can_authenticate`` reports the result of ``user_can_authenticate``.
+``user`` is the user instance.
+``user_created`` reports whether this call created the user.
+``attributes`` is the assertion attribute dictionary.
+
+``post_authenticated`` is sent from ``AssertionConsumerServiceView.post_login_hook`` after the Django login.
+The sender is the user model.
+``instance`` is the user.
+``session_info`` is the pysaml2 session dictionary.
+``request`` is the Django request.
+A subclass that replaces ``post_login_hook`` calls ``super()`` to send this signal.
+
+``lookup_and_set_attributes`` and ``lookup_and_set_attribute`` apply one mapped attribute at a time.
+``customize_session``, ``customize_relay_state``, and ``custom_redirect`` are the other assertion-consumer hooks.
+
 
 URLs
 ----

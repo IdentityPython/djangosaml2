@@ -27,7 +27,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User as DjangoUserModel
 
 from djangosaml2.backends import Saml2Backend, get_saml_user_model, set_attribute
+from djangosaml2.signals import (
+    authenticate,
+    post_authenticated,
+    post_user_save,
+    pre_user_save,
+)
 from djangosaml2.utils import get_csp_handler
+from djangosaml2.views import AssertionConsumerServiceView
 from testprofiles.models import TestUser
 
 
@@ -401,6 +408,143 @@ class Saml2BackendTests(TestCase):
         self.assertTrue(self.backend._set_attribute(u, "new_attribute", False))
 
         self.assertEqual(get_saml_user_model(), TestUser)
+
+
+class Saml2SignalTests(TestCase):
+    def setUp(self):
+        self.backend = Saml2Backend()
+        self.user = TestUser.objects.create(username="john", email="john@example.com")
+
+    def test_pre_user_save_return_value_is_stored(self):
+        def receiver(sender, instance, attributes, user_modified, **kwargs):
+            instance.first_name = "Ada"
+            return True
+
+        pre_user_save.connect(receiver)
+        try:
+            self.backend._update_user(
+                self.user,
+                {"mail": [self.user.email]},
+                {"mail": ("email",)},
+            )
+        finally:
+            pre_user_save.disconnect(receiver)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Ada")
+
+    def test_post_user_save_runs_after_the_save(self):
+        seen = {}
+
+        def receiver(sender, instance, attributes, **kwargs):
+            seen["pk"] = instance.pk
+            seen["email"] = instance.email
+
+        post_user_save.connect(receiver)
+        try:
+            self.backend._update_user(
+                self.user,
+                {"mail": ["ada@example.com"]},
+                {"mail": ("email",)},
+            )
+        finally:
+            post_user_save.disconnect(receiver)
+
+        self.assertEqual(seen["pk"], self.user.pk)
+        self.assertEqual(seen["email"], "ada@example.com")
+
+    def test_authenticate_signal_reports_the_backend_result(self):
+        seen = {}
+
+        def receiver(
+            sender,
+            request,
+            is_authorized,
+            can_authenticate,
+            user,
+            user_created,
+            attributes,
+            **kwargs,
+        ):
+            seen["sender"] = sender
+            seen["is_authorized"] = is_authorized
+            seen["can_authenticate"] = can_authenticate
+            seen["user"] = user
+
+        request = HttpRequest()
+        session_info = {
+            "ava": {"uid": ["john"]},
+            "issuer": "https://idp.example.com",
+        }
+        authenticate.connect(receiver)
+        try:
+            user = self.backend.authenticate(
+                request,
+                session_info=session_info,
+                attribute_mapping={"uid": ("username",)},
+            )
+        finally:
+            authenticate.disconnect(receiver)
+
+        self.assertEqual(user.username, "john")
+        self.assertIs(seen["sender"], Saml2Backend)
+        self.assertTrue(seen["is_authorized"])
+        self.assertTrue(seen["can_authenticate"])
+        self.assertEqual(seen["user"].username, "john")
+
+    def test_refused_assertion_sends_authenticate(self):
+        seen = {}
+
+        def receiver(sender, is_authorized, user, **kwargs):
+            seen["is_authorized"] = is_authorized
+            seen["user"] = user
+
+        request = HttpRequest()
+        session_info = {
+            "ava": {},
+            "issuer": "https://idp.example.com",
+        }
+        authenticate.connect(receiver)
+        try:
+            with patch.object(self.backend, "is_authorized", return_value=False):
+                user = self.backend.authenticate(
+                    request,
+                    session_info=session_info,
+                    attribute_mapping={},
+                )
+        finally:
+            authenticate.disconnect(receiver)
+
+        self.assertIsNone(user)
+        self.assertFalse(seen["is_authorized"])
+        self.assertIsNone(seen["user"])
+
+    def test_post_login_hook_sends_post_authenticated(self):
+        seen = {}
+
+        def receiver(sender, instance, session_info, request, **kwargs):
+            seen["instance"] = instance
+            seen["session_info"] = session_info
+            seen["request"] = request
+
+        class SubclassedACS(AssertionConsumerServiceView):
+            def post_login_hook(self, request, user, session_info):
+                self.saw_user = user
+                super().post_login_hook(request, user, session_info)
+
+        view = SubclassedACS()
+        request = HttpRequest()
+        session_info = {"ava": {"mail": ["ada@example.com"]}}
+        post_authenticated.connect(receiver)
+        try:
+            view.post_login_hook(request, self.user, session_info)
+        finally:
+            post_authenticated.disconnect(receiver)
+
+        self.assertIs(view.saw_user, self.user)
+        self.assertIs(seen["instance"], self.user)
+        self.assertEqual(seen["session_info"], session_info)
+        self.assertIs(seen["request"], request)
 
 
 class CustomizedBackend(Saml2Backend):

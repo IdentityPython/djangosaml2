@@ -12,7 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import django.dispatch
 
+logger = logging.getLogger("djangosaml2")
+
 pre_user_save = django.dispatch.Signal()
+post_user_save = django.dispatch.Signal()
 post_authenticated = django.dispatch.Signal()
+authenticate = django.dispatch.Signal()
+
+
+def send(signal, sender, **kwargs):
+    """Send a signal and log a receiver that raises."""
+    responses = signal.send_robust(sender=sender, **kwargs)
+    for receiver, response in responses:
+        if isinstance(response, Exception):
+            logger.error(
+                "Signal receiver %s failed",
+                getattr(receiver, "__name__", receiver),
+                exc_info=response,
+            )
+    return responses

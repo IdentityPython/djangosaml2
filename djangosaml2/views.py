@@ -64,6 +64,7 @@ from saml2.samlp import AuthnRequest, IDPEntry, IDPList, Scoping
 from saml2.sigver import MissingKey
 from saml2.validate import ResponseLifetimeExceed, ToEarly
 
+from . import signals
 from .cache import IdentityCache, OutstandingQueriesCache, StateCache
 from .conf import get_config
 from .exceptions import IdPConfigurationMissing
@@ -644,7 +645,18 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
     def post_login_hook(
         self, request: HttpRequest, user: settings.AUTH_USER_MODEL, session_info: dict
     ) -> None:
-        """If desired, a hook to add logic after a user has succesfully logged in."""
+        """Hook that runs after a successful login.
+
+        The default implementation sends ``post_authenticated``.
+        A subclass calls ``super()`` to keep that signal.
+        """
+        signals.send(
+            signals.post_authenticated,
+            user.__class__,
+            instance=user,
+            session_info=session_info,
+            request=request,
+        )
 
     def build_relay_state(self) -> str:
         """The relay state is a URL used to redirect the user to the view where they came from."""
