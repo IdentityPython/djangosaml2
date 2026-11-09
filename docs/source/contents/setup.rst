@@ -573,6 +573,12 @@ The sender is the user model.
 ``session_info`` is the pysaml2 session dictionary.
 ``request`` is the Django request.
 A subclass that replaces ``post_login_hook`` calls ``super()`` to send this signal.
+``post_login_hook`` receives that request and ``session_info``.
+A subclass reads ``request.site`` there.
+It applies that site's attributes from ``session_info['ava']``.
+``get_or_create_user`` also receives the request.
+The user may still be unsaved in that method.
+``_update_user`` applies ``SAML_ATTRIBUTE_MAPPING``.
 
 ``lookup_and_set_attributes`` and ``lookup_and_set_attribute`` apply one mapped attribute at a time.
 ``customize_session`` runs after the Django login.
