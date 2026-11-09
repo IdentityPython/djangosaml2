@@ -680,6 +680,14 @@ class SAML2Tests(TestCase):
             "Echo page not rendered",
         )
 
+    @override_settings(LOGOUT_REDIRECT_URL="/dashboard/")
+    def test_logout_without_saml_session(self):
+        user = User.objects.create(username="local")
+        self.client.force_login(user)
+        response = self.client.get(reverse("saml2_logout"))
+        self.assertRedirects(response, "/dashboard/")
+        self.assertNotIn(SESSION_KEY, self.client.session)
+
     def test_logout(self):
         settings.SAML_CONFIG = conf.create_conf(
             sp_host="sp.example.com",

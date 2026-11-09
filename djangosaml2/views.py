@@ -741,13 +741,16 @@ class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
     """
 
     def get(self, request, *args, **kwargs):
-        state, client = self.get_state_client(request)
-
         subject_id = _get_subject_id(request.saml_session)
         if subject_id is None:
-            logger.warning(
-                "The session does not contain the subject id for user %s", request.user
+            logger.info(
+                "User %s logged out locally. No SAML session was present.",
+                request.user,
             )
+            auth.logout(request)
+            return HttpResponseRedirect(getattr(settings, "LOGOUT_REDIRECT_URL", "/"))
+
+        state, client = self.get_state_client(request)
 
         _error = None
         try:
