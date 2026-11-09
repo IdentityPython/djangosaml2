@@ -16,6 +16,7 @@
 import base64
 import logging
 from functools import wraps
+from html.parser import HTMLParser
 from typing import Optional
 from urllib.parse import quote
 
@@ -692,6 +693,45 @@ class EchoAttributesView(LoginRequiredMixin, SPConfigMixin, View):
         )
 
 
+class _PostBindingFormParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.action = ""
+        self.params = {}
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == "form" and not self.action:
+            self.action = attributes.get("action", "")
+        elif tag == "input" and attributes.get("type") == "hidden":
+            name = attributes.get("name")
+            if name:
+                self.params[name] = attributes.get("value", "")
+
+
+def _http_post_body(http_info):
+    data = http_info.get("data", "")
+    if isinstance(data, (list, tuple)):
+        data = "".join(data)
+    if isinstance(data, bytes):
+        data = data.decode("utf-8")
+    return data
+
+
+def render_logout_post_binding_form(request, http_info):
+    """Render the logout POST form with a nonce instead of pysaml2's page."""
+    parser = _PostBindingFormParser()
+    parser.feed(_http_post_body(http_info))
+    return render(
+        request,
+        "djangosaml2/logout_post_binding_form.html",
+        {
+            "target_url": parser.action or http_info.get("url", ""),
+            "params": parser.params,
+        },
+    )
+
+
 @method_decorator(saml2_csp_update, name="dispatch")
 class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
     """SAML Logout Request initiator
@@ -743,8 +783,7 @@ class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
                     logger.debug(
                         "Returning form to the IdP to continue the logout process"
                     )
-                    body = "".join(http_info["data"])
-                    return HttpResponse(body)
+                    return render_logout_post_binding_form(request, http_info)
                 elif binding == saml2.BINDING_HTTP_REDIRECT:
                     logger.debug(
                         "Redirecting to the IdP to continue the logout process"
@@ -839,10 +878,8 @@ class LogoutView(SPConfigMixin, View):
                 and "data" in http_info
                 and ("Content-type", "text/html") in http_info.get("headers", [])
             ):
-                # need to send back to the IDP a signed POST response with user session
-                # return HTML form content to browser with auto form validation
-                # to finally send request to the IDP
-                return HttpResponse(http_info["data"])
+                # The IdP reply is a POST form. Render it with a nonce.
+                return render_logout_post_binding_form(request, http_info)
             return HttpResponseRedirect(get_location(http_info))
         logger.error("No SAMLResponse or SAMLRequest parameter found")
         return HttpResponseBadRequest("No SAMLResponse or SAMLRequest parameter found")

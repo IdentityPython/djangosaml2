@@ -773,6 +773,19 @@ class CSPHandlerTests(TestCase):
         )
         self.assertIn('nonce="django-csp-nonce"', html)
 
+    def test_logout_post_binding_form_uses_django_csp_nonce(self):
+        request = HttpRequest()
+        request.csp_nonce = "django-csp-nonce"
+        html = render_to_string(
+            "djangosaml2/logout_post_binding_form.html",
+            {
+                "target_url": "https://idp.example.org/slo",
+                "params": {},
+                "request": request,
+            },
+        )
+        self.assertIn('nonce="django-csp-nonce"', html)
+
     def test_post_binding_form_omits_nonce_without_csp(self):
         request = HttpRequest()
         html = render_to_string(

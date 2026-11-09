@@ -31,6 +31,7 @@ from django.urls import reverse, reverse_lazy
 from django.contrib.auth import SESSION_KEY, get_user_model
 from django.contrib.auth.models import AnonymousUser
 
+import saml2
 from saml2.config import SPConfig
 from saml2.s_utils import (
     UnknownSystemEntity,
@@ -705,6 +706,66 @@ class SAML2Tests(TestCase):
             decode_base64_and_inflate(saml_request).decode("utf-8"),
             "Not a valid LogoutRequest",
         )
+
+    def _pysaml2_post_form(self, field_name):
+        return {
+            "headers": [("Content-type", "text/html")],
+            "url": "https://idp.example.org/slo",
+            "method": "POST",
+            "data": (
+                '<!DOCTYPE html><html><body onload="document.forms[0].submit()">'
+                '<form action="https://idp.example.org/slo" method="post">'
+                f'<input type="hidden" name="{field_name}" value="REQ&amp;1"/>'
+                '<input type="hidden" name="RelayState" value="relay"/>'
+                "</form></body></html>"
+            ),
+        }
+
+    def _assert_logout_post_form(self, response, field_name):
+        content = response.content.decode()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('action="https://idp.example.org/slo"', content)
+        self.assertIn(f'name="{field_name}"', content)
+        self.assertIn('value="REQ&amp;1"', content)
+        self.assertIn('name="RelayState"', content)
+        self.assertIn("window.onload", content)
+        self.assertNotIn("body onload", content)
+        self.assertNotIn("<!DOCTYPE html>", content)
+
+    def test_logout_post_binding_uses_nonce_template(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host="sp.example.com",
+            idp_hosts=["idp.example.com"],
+            metadata_file="remote_metadata_one_idp.xml",
+        )
+        self.do_login()
+        http_info = self._pysaml2_post_form("SAMLRequest")
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.global_logout",
+            return_value={
+                "https://idp.example.org": (saml2.BINDING_HTTP_POST, http_info)
+            },
+        ):
+            response = self.client.get(reverse("saml2_logout"))
+        self._assert_logout_post_form(response, "SAMLRequest")
+
+    def test_idp_logout_post_binding_uses_nonce_template(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host="sp.example.com",
+            idp_hosts=["idp.example.com"],
+            metadata_file="remote_metadata_one_idp.xml",
+        )
+        self.do_login()
+        http_info = self._pysaml2_post_form("SAMLResponse")
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.handle_logout_request",
+            return_value=http_info,
+        ):
+            response = self.client.get(
+                reverse("saml2_ls"),
+                {"SAMLRequest": "request"},
+            )
+        self._assert_logout_post_form(response, "SAMLResponse")
 
     def test_logout_service_local(self):
         settings.SAML_CONFIG = conf.create_conf(
