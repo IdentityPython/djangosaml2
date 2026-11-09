@@ -435,6 +435,61 @@ class SAML2Tests(TestCase):
             decode_base64_and_inflate(saml_request).decode("utf-8"),
         )
 
+    def _redirect_saml_request(self, response):
+        self.assertEqual(response.status_code, 302)
+        params = parse_qs(urlparse(response["Location"]).query)
+        self.assertIn("SAMLRequest", params)
+        return decode_base64_and_inflate(params["SAMLRequest"][0]).decode("utf-8")
+
+    def test_login_scoping(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host="sp.example.com",
+            idp_hosts=["idp.example.com"],
+            metadata_file="remote_metadata_one_idp.xml",
+        )
+        provider_id = "https://scoped.example.com"
+        response = self.client.get(
+            reverse("saml2_login"), {"scoping": provider_id}
+        )
+        url = urlparse(response["Location"])
+        self.assertEqual(url.hostname, "idp.example.com")
+        saml_request = self._redirect_saml_request(response)
+        self.assertIn("Scoping", saml_request)
+        self.assertIn(f'ProviderID="{provider_id}"', saml_request)
+
+    def test_login_without_scoping(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host="sp.example.com",
+            idp_hosts=["idp.example.com"],
+            metadata_file="remote_metadata_one_idp.xml",
+        )
+        response = self.client.get(reverse("saml2_login"))
+        saml_request = self._redirect_saml_request(response)
+        self.assertNotIn("Scoping", saml_request)
+
+    def test_login_scoping_with_selected_idp(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host="sp.example.com",
+            idp_hosts=[
+                "idp1.example.com",
+                "idp2.example.com",
+                "idp3.example.com",
+            ],
+            metadata_file="remote_metadata_three_idps.xml",
+        )
+        provider_id = "https://scoped.example.com"
+        selected = (
+            "https://idp2.example.com/simplesaml/saml2/idp/metadata.php"
+        )
+        response = self.client.get(
+            reverse("saml2_login"),
+            {"scoping": provider_id, "idp": selected},
+        )
+        url = urlparse(response["Location"])
+        self.assertEqual(url.hostname, "idp2.example.com")
+        saml_request = self._redirect_saml_request(response)
+        self.assertIn(f'ProviderID="{provider_id}"', saml_request)
+
     @override_settings(ACS_DEFAULT_REDIRECT_URL="testprofiles:dashboard")
     def test_assertion_consumer_service(self):
         # Get initial number of users
