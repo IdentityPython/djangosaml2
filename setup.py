@@ -62,6 +62,7 @@ setup(
                                     "djangosaml2.tests", "djangosaml2.tests.*",
                                     "docs", "docs.*"]),
     include_package_data=True,
+    exclude_package_data={"djangosaml2": ["tests", "tests/*", "tests/*/*"]},
     zip_safe=False,
     install_requires=[
         "defusedxml>=0.4.1",
