@@ -670,6 +670,34 @@ The xmlsec1 binary was mentioned in the installation section. Here, in the
 configuration part you just need to put the full path to xmlsec1 so PySAML2
 can call it as it needs.
 
+Authentication request extensions
+==================================
+
+PySAML2 writes ``requested_attributes`` from the service provider configuration into ``samlp:Extensions`` on the authentication request.
+Each entry is a dictionary.
+``name`` is the attribute name.
+``name_format``, ``friendly_name``, and ``required`` are optional.
+
+::
+
+  'service': {
+      'sp': {
+          'requested_attributes': [
+              {
+                  'name': 'http://eidas.europa.eu/attributes/naturalperson/PersonIdentifier',
+                  'name_format': 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri',
+                  'required': 'true',
+              },
+          ],
+      },
+  }
+
+That configuration produces a ``RequestedAttributes`` element inside ``samlp:Extensions``.
+
+Any other extension element is passed by a ``LoginView`` subclass.
+Set ``sso_kwargs['extensions']`` in ``load_sso_kwargs`` to a ``saml2.samlp.Extensions`` instance.
+PySAML2 places that value on the authentication request.
+
 Signed Logout Request
 =====================
 
