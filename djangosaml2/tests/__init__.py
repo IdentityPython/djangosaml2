@@ -32,9 +32,12 @@ from django.contrib.auth import SESSION_KEY, get_user_model
 from django.contrib.auth.models import AnonymousUser
 
 import saml2
+from saml2.client_base import LogoutError
 from saml2.config import SPConfig
+from saml2.response import StatusError
 from saml2.s_utils import (
     UnknownSystemEntity,
+    UnsupportedBinding,
     decode_base64_and_inflate,
     deflate_and_base64_encode,
 )
@@ -628,6 +631,14 @@ class SAML2Tests(TestCase):
         self.assertEqual(response.status_code, 302)
         return subject_id
 
+    def _login_with_one_idp(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host="sp.example.com",
+            idp_hosts=["idp.example.com"],
+            metadata_file="remote_metadata_one_idp.xml",
+        )
+        return self.do_login()
+
     def test_echo_view_no_saml_session(self):
         settings.SAML_CONFIG = conf.create_conf(
             sp_host="sp.example.com",
@@ -920,6 +931,157 @@ class SAML2Tests(TestCase):
         request = RequestFactory().get("/bar/foo")
         response = finish_logout(request, None)
         self.assertContains(response, "<h1>Logout error</h1>", status_code=200)
+
+    def test_logout_response_error_keeps_the_django_session(self):
+        self._login_with_one_idp()
+        failed = mock.Mock()
+        failed.status_ok.return_value = False
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.parse_logout_request_response",
+            return_value=failed,
+        ):
+            response = self.client.get(
+                reverse("saml2_ls"),
+                {"SAMLResponse": "response"},
+            )
+        self.assertContains(response, "Logout error", status_code=200)
+        self.assertIn(SESSION_KEY, self.client.session)
+
+    @override_settings(
+        SAML_IGNORE_LOGOUT_ERRORS=True,
+        LOGOUT_REDIRECT_URL="/dashboard/",
+    )
+    def test_ignore_logout_errors_completes_the_django_logout(self):
+        self._login_with_one_idp()
+        failed = mock.Mock()
+        failed.status_ok.return_value = False
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.parse_logout_request_response",
+            return_value=failed,
+        ):
+            response = self.client.get(
+                reverse("saml2_ls"),
+                {"SAMLResponse": "response"},
+            )
+        self.assertRedirects(response, "/dashboard/", status_code=303)
+        self.assertNotIn(SESSION_KEY, self.client.session)
+
+    def test_logout_status_error_keeps_the_django_session(self):
+        self._login_with_one_idp()
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.parse_logout_request_response",
+            side_effect=StatusError("remote logout failed"),
+        ):
+            response = self.client.get(
+                reverse("saml2_ls"),
+                {"SAMLResponse": "response"},
+            )
+        self.assertContains(response, "Logout error", status_code=200)
+        self.assertIn(SESSION_KEY, self.client.session)
+
+    @override_settings(LOGOUT_REDIRECT_URL="/dashboard/")
+    def test_logout_error_redirects_after_local_logout(self):
+        self._login_with_one_idp()
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.global_logout",
+            side_effect=LogoutError("SLO not supported"),
+        ):
+            response = self.client.get(reverse("saml2_logout"))
+        self.assertRedirects(response, "/dashboard/")
+        self.assertNotIn(SESSION_KEY, self.client.session)
+
+    @override_settings(LOGOUT_REDIRECT_URL="/dashboard/")
+    def test_unsupported_logout_binding_redirects_after_local_logout(self):
+        self._login_with_one_idp()
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.global_logout",
+            side_effect=UnsupportedBinding("binding"),
+        ):
+            response = self.client.get(reverse("saml2_logout"))
+        self.assertRedirects(response, "/dashboard/")
+        self.assertNotIn(SESSION_KEY, self.client.session)
+
+    def test_logout_without_idp_session_is_bad_request(self):
+        self._login_with_one_idp()
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.global_logout",
+            return_value={},
+        ):
+            response = self.client.get(reverse("saml2_logout"))
+        self.assertContains(
+            response, "You are not logged in any IdP/AA", status_code=400
+        )
+        self.assertNotIn(SESSION_KEY, self.client.session)
+
+    def test_logout_unknown_binding_is_server_error(self):
+        self._login_with_one_idp()
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.global_logout",
+            return_value={
+                "https://idp.example.com": ("urn:example:unknown", {})
+            },
+        ):
+            response = self.client.get(reverse("saml2_logout"))
+        self.assertContains(response, "Failed to log out", status_code=500)
+        self.assertNotIn(SESSION_KEY, self.client.session)
+
+    @override_settings(LOGOUT_REDIRECT_URL="/dashboard/")
+    def test_soap_logout_finishes_locally(self):
+        self._login_with_one_idp()
+        logout_response = mock.Mock()
+        logout_response.status_ok.return_value = True
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.global_logout",
+            return_value={"https://idp.example.com": logout_response},
+        ):
+            response = self.client.get(reverse("saml2_logout"))
+        self.assertRedirects(response, "/dashboard/", status_code=303)
+        self.assertNotIn(SESSION_KEY, self.client.session)
+
+    def test_logout_from_several_idps_uses_the_first(self):
+        self._login_with_one_idp()
+        redirect = saml2.BINDING_HTTP_REDIRECT
+        with mock.patch(
+            "djangosaml2.views.Saml2Client.global_logout",
+            return_value={
+                "https://idp.example.com": (
+                    redirect,
+                    {
+                        "headers": [
+                            ("Location", "https://idp.example.com/slo")
+                        ],
+                        "url": "https://idp.example.com/slo",
+                    },
+                ),
+                "https://idp2.example.com": (
+                    redirect,
+                    {
+                        "headers": [
+                            ("Location", "https://idp2.example.com/slo")
+                        ],
+                        "url": "https://idp2.example.com/slo",
+                    },
+                ),
+            },
+        ):
+            response = self.client.get(reverse("saml2_logout"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"], "https://idp.example.com/slo"
+        )
+
+    def test_logout_service_without_saml_message_is_bad_request(self):
+        settings.SAML_CONFIG = conf.create_conf(
+            sp_host="sp.example.com",
+            idp_hosts=["idp.example.com"],
+            metadata_file="remote_metadata_one_idp.xml",
+        )
+        response = self.client.get(reverse("saml2_ls"))
+        self.assertContains(
+            response,
+            "No SAMLResponse or SAMLRequest parameter found",
+            status_code=400,
+        )
 
     def test_sigalg_not_passed_when_not_signing_request(self):
         # monkey patch SAML configuration
