@@ -888,6 +888,12 @@ class LogoutView(SPConfigMixin, View):
         return HttpResponseBadRequest("No SAMLResponse or SAMLRequest parameter found")
 
 
+class HttpResponseSeeOther(HttpResponseRedirect):
+    """Ask the browser to GET the next page after a logout POST."""
+
+    status_code = 303
+
+
 def finish_logout(request, response):
     if getattr(settings, "SAML_IGNORE_LOGOUT_ERRORS", False) or (
         response and response.status_ok()
@@ -899,13 +905,13 @@ def finish_logout(request, response):
         next_path = _get_next_path(request)
         if next_path is not None:
             logger.debug("Redirecting to the RelayState: %s", next_path)
-            return HttpResponseRedirect(next_path)
+            return HttpResponseSeeOther(next_path)
         elif settings.LOGOUT_REDIRECT_URL is not None:
             fallback_url = resolve_url(settings.LOGOUT_REDIRECT_URL)
             logger.debug(
                 "No valid RelayState found; Redirecting to " "LOGOUT_REDIRECT_URL"
             )
-            return HttpResponseRedirect(fallback_url)
+            return HttpResponseSeeOther(fallback_url)
         else:
             current_site = get_current_site(request)
             logger.debug(

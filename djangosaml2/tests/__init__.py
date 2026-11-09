@@ -892,7 +892,7 @@ class SAML2Tests(TestCase):
                 "SAMLResponse": deflate_and_base64_encode(saml_response),
             },
         )
-        self.assertRedirects(response, "/dashboard/")
+        self.assertRedirects(response, "/dashboard/", status_code=303)
         self.assertListEqual(list(self.client.session.keys()), [])
 
     def test_incomplete_logout(self):
