@@ -565,7 +565,9 @@ The sender is the user model.
 A subclass that replaces ``post_login_hook`` calls ``super()`` to send this signal.
 
 ``lookup_and_set_attributes`` and ``lookup_and_set_attribute`` apply one mapped attribute at a time.
-``customize_session``, ``customize_relay_state``, and ``custom_redirect`` are the other assertion-consumer hooks.
+``customize_session`` runs after the Django login.
+``session_info['ava']`` holds the assertion attributes.
+``customize_relay_state`` and ``custom_redirect`` are the other assertion-consumer hooks.
 
 
 URLs
@@ -577,6 +579,37 @@ Changes in the urls.py file.
   from django.urls import include, path
 
   urlpatterns = [
+      path('saml2/', include('djangosaml2.urls')),
+  ]
+
+``saml2/logout/`` starts logout.
+``saml2/ls/`` is the single logout service.
+The identity provider calls ``saml2/ls/`` to finish logout.
+``saml2/ls/post/`` is that service for the HTTP-POST binding.
+``saml2/metadata/`` returns the service provider metadata.
+Give that document to the identity provider.
+
+A subclass of ``AssertionConsumerServiceView`` assigns assertion groups in ``customize_session``.
+The group names are the ``groups`` values in ``session_info['ava']``.
+``user.groups.set`` replaces the user's groups with the groups that already exist.
+Register that view on ``saml2/acs/`` before the included URLs::
+
+  from django.contrib.auth.models import Group
+  from django.urls import include, path
+
+  from djangosaml2.views import AssertionConsumerServiceView
+
+  class GroupAssertionConsumerServiceView(AssertionConsumerServiceView):
+      def customize_session(self, user, session_info):
+          names = session_info.get('ava', {}).get('groups', [])
+          user.groups.set(Group.objects.filter(name__in=names))
+
+  urlpatterns = [
+      path(
+          'saml2/acs/',
+          GroupAssertionConsumerServiceView.as_view(),
+          name='saml2_acs',
+      ),
       path('saml2/', include('djangosaml2.urls')),
   ]
 
