@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.template.loader import render_to_string
 from django.test import Client, TestCase, override_settings
@@ -408,6 +409,33 @@ class Saml2BackendTests(TestCase):
         self.assertTrue(self.backend._set_attribute(u, "new_attribute", False))
 
         self.assertEqual(get_saml_user_model(), TestUser)
+
+
+class UserQueryTests(TestCase):
+    def test_get_user_query_appends_the_lookup_suffix(self):
+        backend = Saml2Backend()
+        with override_settings(SAML_DJANGO_USER_MAIN_ATTRIBUTE_LOOKUP="__iexact"):
+            query = backend.get_user_query("email", "Ada@example.com", {})
+        self.assertEqual(query, {"email__iexact": "Ada@example.com"})
+
+    def test_q_object_matches_the_fallback_field(self):
+        class FallbackBackend(Saml2Backend):
+            def get_user_query(self, user_lookup_key, user_lookup_value, attributes):
+                mail = attributes.get("mail", [None])[0]
+                return Q(**{user_lookup_key: user_lookup_value}) | Q(email=mail)
+
+        TestUser.objects.create(username="ada", email="ada@example.com")
+        user, created = FallbackBackend().get_or_create_user(
+            "username",
+            "missing",
+            False,
+            "https://idp.example.com",
+            {"mail": ["ada@example.com"]},
+            {},
+            None,
+        )
+        self.assertFalse(created)
+        self.assertEqual(user.username, "ada")
 
 
 class Saml2SignalTests(TestCase):

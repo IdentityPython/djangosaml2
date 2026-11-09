@@ -20,6 +20,7 @@ from typing import Any, Optional
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, MultipleObjectsReturned
+from django.db.models import Q
 
 from django.contrib import auth
 from django.contrib.auth.backends import ModelBackend
@@ -346,22 +347,20 @@ class Saml2Backend(ModelBackend):
         e.g. customize this per IdP.
         """
         UserModel = self._user_model
-
-        # Construct query parameters to query the userModel with. An additional lookup modifier could be specified in the settings.
-        user_query_args = {
-            user_lookup_key
-            + getattr(
-                settings, "SAML_DJANGO_USER_MAIN_ATTRIBUTE_LOOKUP", ""
-            ): user_lookup_value
-        }
+        user_query = self.get_user_query(
+            user_lookup_key, user_lookup_value, attributes
+        )
 
         # Lookup existing user
         user, created = None, False
         try:
-            user = UserModel.objects.get(**user_query_args)
+            if isinstance(user_query, Q):
+                user = UserModel.objects.get(user_query)
+            else:
+                user = UserModel.objects.get(**user_query)
         except MultipleObjectsReturned:
             logger.exception(
-                f"Multiple users match, model: {UserModel._meta}, lookup: {user_query_args}",
+                f"Multiple users match, model: {UserModel._meta}, lookup: {user_query}",
             )
         except UserModel.DoesNotExist:
             # Create new one if desired by settings
@@ -373,10 +372,21 @@ class Saml2Backend(ModelBackend):
                 logger.debug(f"New user created: {user}", exc_info=True)
             else:
                 logger.exception(
-                    f"The user does not exist, model: {UserModel._meta}, lookup: {user_query_args}"
+                    f"The user does not exist, model: {UserModel._meta}, lookup: {user_query}"
                 )
 
         return user, created
+
+    def get_user_query(self, user_lookup_key, user_lookup_value, attributes):
+        """Return the query that finds the user.
+
+        A dict is passed as keyword arguments.
+        A Q object is passed as the positional query.
+        """
+        lookup = user_lookup_key + getattr(
+            settings, "SAML_DJANGO_USER_MAIN_ATTRIBUTE_LOOKUP", ""
+        )
+        return {lookup: user_lookup_value}
 
     def save_user(
         self, user: settings.AUTH_USER_MODEL, *args, **kwargs

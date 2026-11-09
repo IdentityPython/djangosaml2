@@ -369,6 +369,22 @@ an email address), you may set::
 (This is simply appended to the main attribute name to form a Django
 query. Your main attribute must be unique even given this lookup.)
 
+``get_user_query`` builds that lookup.
+A subclass returns a dictionary, or a ``Q`` object.
+A dictionary is applied as keyword arguments.
+A ``Q`` object is applied as the positional query.
+A new user is still constructed with the main lookup field.
+
+::
+
+  from django.db.models import Q
+  from djangosaml2.backends import Saml2Backend
+
+  class FallbackBackend(Saml2Backend):
+      def get_user_query(self, user_lookup_key, user_lookup_value, attributes):
+          mail = (attributes or {}).get("mail", [None])[0]
+          return Q(**{user_lookup_key: user_lookup_value}) | Q(email=mail)
+
 Another option is to use the SAML2 name id as the username by setting::
 
   SAML_USE_NAME_ID_AS_USERNAME = True
