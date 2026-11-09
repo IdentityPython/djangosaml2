@@ -18,12 +18,16 @@ from unittest.mock import MagicMock, patch
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.test import TestCase, override_settings
+from django.http import HttpRequest, HttpResponse
+from django.template.loader import render_to_string
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User as DjangoUserModel
 
 from djangosaml2.backends import Saml2Backend, get_saml_user_model, set_attribute
+from djangosaml2.utils import get_csp_handler
 from testprofiles.models import TestUser
 
 
@@ -296,7 +300,7 @@ class Saml2BackendTests(TestCase):
         self.assertFalse(created)
         self.assertIn(
             "ERROR:djangosaml2:Multiple users match, model: testprofiles.testuser, lookup: {'age': ''}",
-            logs.output,
+            logs.output[0],
         )
 
     def test_get_or_create_user_no_create(self):
@@ -316,7 +320,7 @@ class Saml2BackendTests(TestCase):
         self.assertFalse(created)
         self.assertIn(
             "ERROR:djangosaml2:The user does not exist, model: testprofiles.testuser, lookup: {'username': 'paul'}",
-            logs.output,
+            logs.output[0],
         )
 
     def test_get_or_create_user_create(self):
@@ -336,7 +340,7 @@ class Saml2BackendTests(TestCase):
         self.assertTrue(created)
         self.assertIn(
             f"DEBUG:djangosaml2:New user created: {user}",
-            logs.output,
+            logs.output[0],
         )
 
     def test_deprecations(self):
@@ -615,3 +619,168 @@ class LoginViewSignAlgTests(TestCase):
         self.assertIn("sign_alg", kwargs)
         self.assertEqual(kwargs["sign_alg"], xmldsig.SIG_RSA_SHA256)
         self.assertNotIn("sigalg", kwargs)
+class CSPHandlerTests(TestCase):
+    def test_get_csp_handler_none(self):
+        get_csp_handler.cache_clear()
+        with override_settings(SAML_CSP_HANDLER=None):
+            csp_handler = get_csp_handler()
+            self.assertIn(
+                csp_handler.__module__, ["csp.decorators", "djangosaml2.utils"]
+            )
+            self.assertIn(csp_handler.__name__, ["decorator", "empty_view_decorator"])
+
+    def test_get_csp_handler_empty(self):
+        get_csp_handler.cache_clear()
+        with override_settings(SAML_CSP_HANDLER=""):
+            csp_handler = get_csp_handler()
+            self.assertEqual(csp_handler.__name__, "empty_view_decorator")
+
+    def test_get_csp_handler_specified(self):
+        get_csp_handler.cache_clear()
+        with override_settings(SAML_CSP_HANDLER="testprofiles.utils.csp_handler"):
+            client = Client()
+            response = client.get(reverse("saml2_login"))
+            self.assertIn("Content-Security-Policy", response.headers)
+            self.assertEqual(
+                response.headers["Content-Security-Policy"], "testing CSP value"
+            )
+
+    def test_get_csp_handler_specified_missing(self):
+        get_csp_handler.cache_clear()
+        with override_settings(SAML_CSP_HANDLER="does.not.exist"):
+            with self.assertRaises(ImportError):
+                get_csp_handler()
+
+    def _require_native_csp(self):
+        try:
+            from django.middleware.csp import ContentSecurityPolicyMiddleware
+        except ImportError:
+            self.skipTest("Django native CSP requires Django 6.0+")
+        return ContentSecurityPolicyMiddleware
+
+    def _response_through_csp_middleware(self, handler, middleware_class):
+        @handler
+        def dummy_view(request):
+            return HttpResponse("test")
+
+        middleware = middleware_class(lambda request: HttpResponse())
+        request = HttpRequest()
+        middleware.process_request(request)
+        response = dummy_view(request)
+        return middleware.process_response(request, response)
+
+    def _native_csp_handler(self, middleware, **settings_overrides):
+        settings_overrides.setdefault("SAML_CSP_HANDLER", None)
+        settings_overrides["MIDDLEWARE"] = list(settings.MIDDLEWARE) + [middleware]
+        with patch(
+            "djangosaml2.utils._django_csp_update_decorator", return_value=None
+        ):
+            with override_settings(**settings_overrides):
+                get_csp_handler.cache_clear()
+                return get_csp_handler()
+
+    def test_get_csp_handler_django_native_csp_merges_form_action(self):
+        middleware_class = self._require_native_csp()
+        handler = self._native_csp_handler(
+            "django.middleware.csp.ContentSecurityPolicyMiddleware",
+            SECURE_CSP={"default-src": ["'self'"], "form-action": ["'self'"]},
+        )
+        response = self._response_through_csp_middleware(handler, middleware_class)
+        header = response.headers["Content-Security-Policy"]
+        self.assertIn("form-action 'self' https:", header)
+        self.assertIn("default-src 'self'", header)
+        self.assertNotIn(
+            "Content-Security-Policy-Report-Only", response.headers
+        )
+
+    def test_get_csp_handler_django_native_csp_keeps_existing_https(self):
+        middleware_class = self._require_native_csp()
+        handler = self._native_csp_handler(
+            "django.middleware.csp.ContentSecurityPolicyMiddleware",
+            SECURE_CSP={"form-action": ["https:"]},
+        )
+        response = self._response_through_csp_middleware(handler, middleware_class)
+        header = response.headers["Content-Security-Policy"]
+        self.assertIn("form-action https:", header)
+        self.assertEqual(header.split("form-action", 1)[1].count("https:"), 1)
+
+    def test_get_csp_handler_django_native_csp_report_only(self):
+        middleware_class = self._require_native_csp()
+        handler = self._native_csp_handler(
+            "django.middleware.csp.ContentSecurityPolicyMiddleware",
+            SECURE_CSP_REPORT_ONLY={
+                "default-src": ["'self'"],
+                "form-action": ["'self'"],
+            },
+        )
+        response = self._response_through_csp_middleware(handler, middleware_class)
+        header = response.headers["Content-Security-Policy-Report-Only"]
+        self.assertIn("form-action 'self' https:", header)
+        self.assertNotIn("Content-Security-Policy", response.headers)
+
+    def test_get_csp_handler_django_native_csp_no_middleware(self):
+        self._require_native_csp()
+        with patch(
+            "djangosaml2.utils._django_csp_update_decorator", return_value=None
+        ):
+            with override_settings(SAML_CSP_HANDLER=None):
+                get_csp_handler.cache_clear()
+                handler = get_csp_handler()
+        self.assertEqual(handler.__name__, "empty_view_decorator")
+
+    def test_post_binding_form_uses_django_csp_nonce(self):
+        request = HttpRequest()
+        request.csp_nonce = "django-csp-nonce"
+        html = render_to_string(
+            "djangosaml2/post_binding_form.html",
+            {
+                "target_url": "https://idp.example.org/sso",
+                "params": {},
+                "request": request,
+            },
+        )
+        self.assertIn('nonce="django-csp-nonce"', html)
+
+    def test_post_binding_form_uses_django_native_nonce(self):
+        try:
+            from django.utils.csp import LazyNonce
+        except ImportError:
+            self.skipTest("Django native CSP requires Django 6.0+")
+        request = HttpRequest()
+        html = render_to_string(
+            "djangosaml2/post_binding_form.html",
+            {
+                "target_url": "https://idp.example.org/sso",
+                "params": {},
+                "request": request,
+                "csp_nonce": LazyNonce(),
+            },
+        )
+        self.assertIn("nonce=", html)
+        self.assertNotIn('nonce=""', html)
+        self.assertNotIn("nonce=\"<CSP_NONCE_SENTINEL>\"", html)
+
+    def test_example_post_binding_form_uses_the_same_nonce(self):
+        request = HttpRequest()
+        request.csp_nonce = "django-csp-nonce"
+        html = render_to_string(
+            "djangosaml2/example_post_binding_form.html",
+            {
+                "target_url": "https://idp.example.org/sso",
+                "params": {},
+                "request": request,
+            },
+        )
+        self.assertIn('nonce="django-csp-nonce"', html)
+
+    def test_post_binding_form_omits_nonce_without_csp(self):
+        request = HttpRequest()
+        html = render_to_string(
+            "djangosaml2/post_binding_form.html",
+            {
+                "target_url": "https://idp.example.org/sso",
+                "params": {},
+                "request": request,
+            },
+        )
+        self.assertNotIn("nonce=", html)

@@ -72,7 +72,7 @@ class IdentityCache(Cache):
     logged in.
 
     This information is useful because when the user logs out we must
-    know where does he come from in order to notify such IdP/AA.
+    know where does they come from in order to notify such IdP/AA.
 
     The current implementation stores this information in the Django session.
     """

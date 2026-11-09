@@ -139,9 +139,9 @@ class SAML2Tests(TestCase):
             came_from,
         )
         self.saml_session.save()
-        self.client.cookies[
-            settings.SESSION_COOKIE_NAME
-        ] = self.saml_session.session_key
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = (
+            self.saml_session.session_key
+        )
 
     def b64_for_post(self, xml_text, encoding="utf-8"):
         return base64.b64encode(xml_text.encode(encoding)).decode("ascii")
@@ -308,8 +308,12 @@ class SAML2Tests(TestCase):
             metadata_file="remote_metadata_three_idps.xml",
         )
 
-        response = self.client.get(reverse("saml2_login") + "?idp=<b>https://unknown.org</b>")
-        self.assertContains(response, "&lt;b&gt;https://unknown.org&lt;/b&gt;", status_code=403)
+        response = self.client.get(
+            reverse("saml2_login") + "?idp=<b>https://unknown.org</b>"
+        )
+        self.assertContains(
+            response, "&lt;b&gt;https://unknown.org&lt;/b&gt;", status_code=403
+        )
 
     def test_login_authn_context(self):
         sp_kwargs = {
@@ -462,6 +466,9 @@ class SAML2Tests(TestCase):
         user_id = self.client.session[SESSION_KEY]
         user = User.objects.get(id=user_id)
         self.assertEqual(user.username, "student")
+        # Since a new user object is created, the password
+        # field is set to have an unusable password.
+        self.assertEqual(user.has_usable_password(), False)
 
         # let's create another user and log in with that one
         new_user = User.objects.create(username="teacher", password="not-used")
@@ -486,6 +493,10 @@ class SAML2Tests(TestCase):
         # as the RelayState is empty we have redirect to ACS_DEFAULT_REDIRECT_URL
         self.assertRedirects(response, "/dashboard/")
         self.assertEqual(str(new_user.id), client.session[SESSION_KEY])
+        new_user.refresh_from_db()
+        # Since "new_user" already had a password,
+        # the password field will remain unchanged.
+        self.assertEqual(new_user.has_usable_password(), True)
 
     @override_settings(ACS_DEFAULT_REDIRECT_URL="testprofiles:dashboard")
     def test_assertion_consumer_service_default_relay_state(self):
@@ -1030,3 +1041,31 @@ class MiddlewareTests(SessionEnabledTestCase):
             self.assertIsNotNone(cookie["expires"])
             self.assertNotEqual(cookie["expires"], "")
             self.assertNotEqual(cookie["max-age"], "")
+
+    def test_middleware_cookie_samesite(self):
+        with override_settings(SAML_SESSION_COOKIE_SAMESITE="Lax"):
+            session = self.get_session()
+            session.save()
+            self.set_session_cookies(session)
+
+            config_loader_path = "djangosaml2.tests.test_config_loader_with_real_conf"
+            request = RequestFactory().get("/login/")
+            request.user = AnonymousUser()
+            request.session = session
+            middleware = SamlSessionMiddleware(dummy_get_response)
+            middleware.process_request(request)
+
+            saml_session_name = getattr(
+                settings, "SAML_SESSION_COOKIE_NAME", "saml_session"
+            )
+            getattr(request, saml_session_name).save()
+
+            response = views.LoginView.as_view(config_loader_path=config_loader_path)(
+                request
+            )
+
+            response = middleware.process_response(request, response)
+
+            cookie = response.cookies[saml_session_name]
+
+            self.assertEqual(cookie["samesite"], "Lax")

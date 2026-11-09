@@ -1,6 +1,5 @@
 import time
 
-from django import VERSION
 from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 from django.utils.cache import patch_vary_headers
@@ -9,8 +8,7 @@ from django.utils.http import http_date
 from django.contrib.sessions.backends.base import UpdateError
 from django.contrib.sessions.middleware import SessionMiddleware
 
-django_version = float("{}.{}".format(*VERSION[:2]))
-SAMESITE_NONE = None if django_version < 3.1 else "None"
+SAMESITE_NONE = "None"
 
 
 class SamlSessionMiddleware(SessionMiddleware):
@@ -26,6 +24,8 @@ class SamlSessionMiddleware(SessionMiddleware):
         session every time, save the changes and set a session cookie or delete
         the session cookie if the session has been emptied.
         """
+        SAMESITE = getattr(settings, "SAML_SESSION_COOKIE_SAMESITE", SAMESITE_NONE)
+
         try:
             accessed = request.saml_session.accessed
             modified = request.saml_session.modified
@@ -39,7 +39,7 @@ class SamlSessionMiddleware(SessionMiddleware):
                 self.cookie_name,
                 path=settings.SESSION_COOKIE_PATH,
                 domain=settings.SESSION_COOKIE_DOMAIN,
-                samesite=SAMESITE_NONE,
+                samesite=SAMESITE,
             )
             patch_vary_headers(response, ("Cookie",))
         else:
@@ -74,6 +74,6 @@ class SamlSessionMiddleware(SessionMiddleware):
                         path=settings.SESSION_COOKIE_PATH,
                         secure=settings.SESSION_COOKIE_SECURE or None,
                         httponly=settings.SESSION_COOKIE_HTTPONLY or None,
-                        samesite=SAMESITE_NONE,
+                        samesite=SAMESITE,
                     )
         return response

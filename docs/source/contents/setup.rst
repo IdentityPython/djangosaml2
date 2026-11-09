@@ -62,6 +62,10 @@ You can even configure the SAML cookie name as follows::
 
   SAML_SESSION_COOKIE_NAME = 'saml_session'
 
+By default, djangosaml2 will set "SameSite=None" for the SAML session cookie. This value can be configured as follows::
+
+  SAML_SESSION_COOKIE_SAMESITE = 'Lax'
+
 Remember that in your browser "SameSite=None" attribute MUST also
 have the "Secure" attribute, which is required in order to use "SameSite=None", otherwise the cookie will be blocked, so you must also set::
 
@@ -69,10 +73,7 @@ have the "Secure" attribute, which is required in order to use "SameSite=None", 
 
 .. Note::
 
-  djangosaml2 will attempt to set the ``SameSite`` attribute of the SAML session cookie to ``None`` so that it can be
-  used in cross-site requests, but this is only possible with Django 3.1 or higher. If you are experiencing issues with
-  unsolicited requests or cookies not being sent (particularly when using the HTTP-POST binding), consider upgrading
-  to Django 3.1 or higher. If you can't do that, configure "allow_unsolicited" to True in pySAML2 configuration.
+  The SAML session cookie uses ``SameSite=None`` so the browser sends it on the cross-site POST binding. Browsers accept that value only together with ``Secure``.
 
 Authentication backend
 ======================
@@ -118,11 +119,11 @@ view to djangosaml2 wb path, like ``/saml2/login/``.
 Handling Post-Login Redirects
 =============================
 
-It is often desireable for the client to maintain the URL state (or at least manage it) so that
+It is often desirable for the client to maintain the URL state (or at least manage it) so that
 the URL once authentication has completed is consistent with the desired application state (such
 as retaining query parameters, etc.)  By default, the HttpRequest objects get_host() method is used
 to determine the hostname of the server, and redirect URL's are allowed so long as the destination
-host matches the output of get_host().  However, in some cases it becomes desireable for additional
+host matches the output of get_host().  However, in some cases it becomes desirable for additional
 hostnames to be used for the post-login redirect.  In such cases, the setting::
 
   SAML_ALLOWED_HOSTS = []
@@ -133,6 +134,22 @@ may be specified by the client - typically with the ?next= parameter.)
 In the absence of a ``?next=parameter``, the ``ACS_DEFAULT_REDIRECT_URL`` or ``LOGIN_REDIRECT_URL`` setting will
 be used (assuming the destination hostname either matches the output of get_host() or is included in the
 ``SAML_ALLOWED_HOSTS`` setting)
+
+Redirect URL validation
+=======================
+
+Djangosaml2 will validate the redirect URL before redirecting to its value. In
+some edge-cases, valid redirect targets will fail to pass this check. This is
+limited to URLs that are a single 'word' without slashes. (For example, 'home'
+but also 'page-with-dashes').
+
+In this situation, the best solution would be to add a slash to the URL. For
+example: 'home' could be '/home' or 'home/'.
+If this is unfeasible, this strict validation can be turned off by setting
+``SAML_STRICT_URL_VALIDATION`` to ``False`` in settings.py.
+
+During validation, `Django named URL patterns <https://docs.djangoproject.com/en/dev/topics/http/urls/#naming-url-patterns>`_
+will also be resolved. Turning off strict validation will prevent this from happening.
 
 Preferred sso binding
 =====================
@@ -202,13 +219,13 @@ see AARC Blueprint specs `here <https://zenodo.org/record/4596667/files/AARC-G06
 
 IdP scoping
 ===========
-The SP can suggest an IdP to a proxy by using the Scoping and IDPList elements in a SAML AuthnRequest. This is done using the `scoping` parameter to the login URL.
+The SP can suggest an IdP to a proxy by using the Scoping and IDPList elements in a SAML AuthnRequest. This is done using the `scoping` parameter to the login URL. ::
 
-``https://sp.example.org/saml2/login/?scoping=https://idp.example.org``
+  https://sp.example.org/saml2/login/?scoping=https://idp.example.org
 
-This parameter can be combined with the IdP parameter if multiple IdPs are present in the metadata, otherwise the first is used.
+This parameter can be combined with the IdP parameter if multiple IdPs are present in the metadata, otherwise the first is used. ::
 
-``https://sp.example.org/saml2/login/?scoping=https://idp.example.org&idp=https://proxy.example.com/metadata``
+  https://sp.example.org/saml2/login/?scoping=https://idp.example.org&idp=https://proxy.example.com/metadata
 
 Currently there is support for a single IDPEntry in the IDPList.
 
@@ -243,7 +260,7 @@ setting::
   SAML_CONFIG_LOADER = 'python.path.to.your.callable'
 
 Bearer Assertion Replay Attack Prevention
-==================================
+=========================================
 In SAML standard doc, section 4.1.4.5 it states
 
 The service provider MUST ensure that bearer assertions are not replayed, by maintaining the set of used ID values for the length of time for which the assertion would be considered valid based on the NotOnOrAfter attribute in the <SubjectConfirmationData>
@@ -267,6 +284,36 @@ djangosaml2 provides a hook 'is_authorized' for the SP to store assertion IDs an
         time_delta = isoparse(expiration_time) - datetime.now(timezone.utc)
         cache_storage.set(assertion_id, 'True', ex=time_delta)
         return True
+
+CSP Configuration
+=================
+By default djangosaml2 updates the Content-Security-Policy of the POST binding
+views. It uses `django-csp <https://django-csp.readthedocs.io>`_ when that
+package is installed. On Django 6.0 and later, if django-csp is not installed
+and ``django.middleware.csp.ContentSecurityPolicyMiddleware`` is in
+``MIDDLEWARE``, djangosaml2 reads ``SECURE_CSP`` and ``SECURE_CSP_REPORT_ONLY``
+and adds ``https:`` to ``form-action``. Enable
+``django.template.context_processors.csp`` so the autosubmit script receives
+``csp_nonce``. If neither integration is available, a warning is logged.
+
+The warning can be disabled by setting::
+
+  SAML_CSP_HANDLER = ''
+
+A custom handler can similary be specified::
+
+  # Django settings
+  SAML_CSP_HANDLER = 'myapp.utils.csp_handler'
+
+  # myapp/utils.py
+  def csp_handler(response):
+      response.headers['Content-Security-Policy'] = ...
+      return response
+
+A value of `None` is the default. django-csp is used when it is installed.
+Django's built-in CSP is used when its middleware is configured and django-csp
+is not installed.
+
 
 Users, attributes and account linking
 -------------------------------------
@@ -337,12 +384,9 @@ SAML_ATTRIBUTE_MAPPING option in your settings.py::
 where the keys of this dictionary are SAML user attributes and the values
 are Django User attributes.
 
-If you are using Django user profile objects to store extra attributes
-about your user you can add those attributes to the SAML_ATTRIBUTE_MAPPING
-dictionary. For each (key, value) pair, djangosaml2 will try to store the
-attribute in the User model if there is a matching field in that model.
-Otherwise it will try to do the same with your profile custom model. For
-multi-valued attributes only the first value is assigned to the destination field.
+For each (key, value) pair, djangosaml2 will try to store the attribute (key) in your
+configured `User` model if the matching fields exists on that model. For multi-valued
+attributes only the first value is assigned to the destination field.
 
 Alternatively, custom processing of attributes can be achieved by setting the
 value(s) in the SAML_ATTRIBUTE_MAPPING, to name(s) of method(s) defined on a
@@ -436,14 +480,11 @@ URLs
 Changes in the urls.py file.
  The next thing you need to do is to include ``djangosaml2.urls`` module in your main ``urls.py`` module::
 
-  urlpatterns = patterns(
-      '',
-      #  lots of url definitions here
+  from django.urls import include, path
 
-      (r'saml2/', include('djangosaml2.urls')),
-
-      #  more url definitions
-  )
+  urlpatterns = [
+      path('saml2/', include('djangosaml2.urls')),
+  ]
 
 PySAML2 specific files and configuration
 ----------------------------------------

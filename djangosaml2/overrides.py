@@ -19,9 +19,9 @@ class Saml2Client(saml2.client.Saml2Client):
     def do_logout(self, *args, **kwargs):
         if not kwargs.get("expected_binding"):
             try:
-                kwargs[
-                    "expected_binding"
-                ] = settings.SAML_LOGOUT_REQUEST_PREFERRED_BINDING
+                kwargs["expected_binding"] = (
+                    settings.SAML_LOGOUT_REQUEST_PREFERRED_BINDING
+                )
             except AttributeError:
                 logger.warning(
                     "SAML_LOGOUT_REQUEST_PREFERRED_BINDING setting is"

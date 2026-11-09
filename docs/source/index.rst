@@ -41,3 +41,9 @@ under the `Apache 2.0 <https://en.wikipedia.org/wiki/Apache_License>`_.
    :caption: FAQ
 
    contents/faq.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Security considerations
+
+   contents/security.md

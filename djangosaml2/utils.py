@@ -16,13 +16,17 @@ import logging
 import re
 import urllib
 import zlib
+from functools import lru_cache, wraps
 from typing import Optional
+from importlib.metadata import version, PackageNotFoundError
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import resolve_url
+from django.urls import NoReverseMatch
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.module_loading import import_string
 
 from saml2.config import SPConfig
 from saml2.mdstore import MetaDataMDX
@@ -44,7 +48,7 @@ def available_idps(config: SPConfig, langpref=None, idp_to_check: str = None) ->
     for metadata in config.metadata.metadata.values():
         # initiate a fetch to the selected idp when using MDQ, otherwise the MetaDataMDX is an empty database
         if isinstance(metadata, MetaDataMDX) and idp_to_check:
-            m = metadata[idp_to_check]
+            m = metadata[idp_to_check]  # noqa: F841
         result = metadata.any("idpsso_descriptor", "single_sign_on_service")
         if result:
             idps.update(result.keys())
@@ -79,7 +83,7 @@ def get_idp_sso_supported_bindings(
     except UnknownSystemEntity:
         raise UnknownSystemEntity
     except Exception as e:
-        logger.error(f"get_idp_sso_supported_bindings failed with: {e}")
+        logger.exception(f"get_idp_sso_supported_bindings failed with: {e}")
 
 
 def get_location(http_info):
@@ -99,6 +103,23 @@ def get_fallback_login_redirect_url():
 
 
 def validate_referral_url(request, url):
+    # Ensure the url is even a valid URL; sometimes the given url is a
+    # RelayState containing PySAML data.
+    # Some technically-valid urls will be fail this check, so the
+    # SAML_STRICT_URL_VALIDATION setting can be used to turn off this check.
+    # This should only happen if there is no slash, host and/or protocol in the
+    # given URL. A better fix would be to add those to the RelayState.
+    saml_strict_url_validation = getattr(settings, "SAML_STRICT_URL_VALIDATION", True)
+    try:
+        if saml_strict_url_validation:
+            # This will also resolve Django URL pattern names
+            url = resolve_url(url)
+    except NoReverseMatch:
+        logger.debug(
+            "Could not validate given referral url is a valid URL", exc_info=True
+        )
+        return None
+
     # Ensure the user-originating redirection url is safe.
     # By setting SAML_ALLOWED_HOSTS in settings.py the user may provide a list of "allowed"
     # hostnames for post-login redirects, much like one would specify ALLOWED_HOSTS .
@@ -109,7 +130,9 @@ def validate_referral_url(request, url):
     )
 
     if not url_has_allowed_host_and_scheme(url=url, allowed_hosts=saml_allowed_hosts):
-        return get_fallback_login_redirect_url()
+        logger.debug("Referral URL not in SAML_ALLOWED_HOSTS or of the origin host.")
+        return None
+
     return url
 
 
@@ -181,3 +204,123 @@ def add_idp_hinting(request, http_response) -> bool:
             f"Idp hinting: cannot detect request type [{http_response.status_code}]"
         )
     return False
+
+
+@lru_cache
+def get_csp_handler():
+    """Returns a view decorator for CSP."""
+
+    def empty_view_decorator(view):
+        return view
+
+    csp_handler_string = get_custom_setting("SAML_CSP_HANDLER", None)
+
+    if csp_handler_string is None:
+        # django-csp is tried first. Django's built-in CSP is the fallback.
+        handler = _django_csp_update_decorator() or _django_native_csp_decorator()
+        if handler:
+            return handler
+        logger.warning(
+            "No CSP integration found, not updating Content-Security-Policy. Please "
+            "make sure CSP is configured. This can be done by your reverse proxy, "
+            "Django's built-in CSP middleware (6.0+), django-csp, or a custom CSP "
+            "handler via SAML_CSP_HANDLER. See "
+            "https://djangosaml2.readthedocs.io/contents/security.html#content-security-policy"
+            " for more information. "
+            "This warning can be disabled by setting `SAML_CSP_HANDLER=''` in your settings."
+        )
+        return empty_view_decorator
+
+    if csp_handler_string.strip() != "":
+        # Non empty string is configured, attempt to import it
+        csp_handler = import_string(csp_handler_string)
+
+        def custom_csp_updater(f):
+            @wraps(f)
+            def wrapper(*args, **kwargs):
+                return csp_handler(f(*args, **kwargs))
+
+            return wrapper
+
+        return custom_csp_updater
+
+    # Fall back to empty decorator when csp_handler_string is empty
+    return empty_view_decorator
+
+
+def _form_action_with_https(config):
+    """Return a copy of a CSP mapping that allows HTTPS form posts."""
+    if not config:
+        return None
+    merged = dict(config)
+    sources = merged.get("form-action", [])
+    if isinstance(sources, str):
+        sources = [sources]
+    else:
+        sources = list(sources)
+    if "https:" not in sources:
+        sources.append("https:")
+    merged["form-action"] = sources
+    return merged
+
+
+def _django_native_csp_decorator():
+    """Return a decorator when Django's built-in CSP middleware is configured."""
+    try:
+        from django.views.decorators.csp import csp_override, csp_report_only_override
+    except ImportError:
+        return None
+
+    middleware = getattr(settings, "MIDDLEWARE", [])
+    if "django.middleware.csp.ContentSecurityPolicyMiddleware" not in middleware:
+        return None
+
+    enforce = _form_action_with_https(getattr(settings, "SECURE_CSP", None))
+    report_only = _form_action_with_https(
+        getattr(settings, "SECURE_CSP_REPORT_ONLY", None)
+    )
+    if enforce is None and report_only is None:
+        return None
+
+    def decorator(view):
+        if enforce is not None:
+            view = csp_override(enforce)(view)
+        if report_only is not None:
+            view = csp_report_only_override(report_only)(view)
+        return view
+
+    return decorator
+
+
+def _django_csp_update_decorator():
+    """Returns a view CSP decorator if django-csp is available, otherwise None."""
+    try:
+        from csp.decorators import csp_update
+    except ModuleNotFoundError:
+        return None
+    else:
+        # autosubmit of forms uses nonce per default
+        # form-action https: to send data to IdPs
+        # Check django-csp version to determine the appropriate format
+        try:
+            csp_version = version('django-csp')
+            major_version = int(csp_version.split('.')[0])
+
+            # Version detection successful
+            if major_version >= 4:
+                # django-csp 4.0+ uses dict format with named 'config' parameter
+                return csp_update(config={"form-action": ["https:"]})
+            # django-csp < 4.0 uses kwargs format
+            return csp_update(FORM_ACTION=["https:"])
+        except (PackageNotFoundError, ValueError, RuntimeError, AttributeError, IndexError):
+            # Version detection failed, we need to try both formats
+            # Try v4.0+ style first because:
+            # 1. It has better error handling with clear messages
+            # 2. Newer versions are more likely to be supported in the future
+            # 3. If using kwargs with v4.0, it raises a specific RuntimeError we can catch
+            try:
+                return csp_update(config={"form-action": ["https:"]})
+            except (TypeError, RuntimeError):
+                # TypeErrors could happen if config is not a recognized parameter (v3.x)
+                # RuntimeErrors could happen in v4.0+ if we try the wrong approach
+                return csp_update(FORM_ACTION=["https:"])

@@ -15,22 +15,30 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
-        django-version: ["3.2", "4.0", "4.1"]
-        include:
-        - python-version: "3.7"
-          django-version: "3.2"
-
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        django-version: ["5.2", "6.0", "6.1"]
+        exclude:
+          # Django 6.0 and 6.1 require Python 3.12+
+          - django-version: "6.0"
+            python-version: "3.10"
+          - django-version: "6.1"
+            python-version: "3.10"
+          - django-version: "6.0"
+            python-version: "3.11"
+          - django-version: "6.1"
+            python-version: "3.11"
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
     - name: Install dependencies and testing utilities
       run: |
         sudo apt-get update && sudo apt-get install xmlsec1
-        python -m pip install --upgrade pip tox rstcheck setuptools codecov
+        python -m pip install --upgrade pip
+        python -m pip install --upgrade tox rstcheck setuptools codecov
     #- name: Readme check
       #if: ${{ matrix.python-version }} == 3.8 && ${{ matrix.django-version }} == "3.0"
       #run: rstcheck README.rst
