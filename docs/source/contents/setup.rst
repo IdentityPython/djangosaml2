@@ -338,7 +338,7 @@ The backend looks up and creates users of this model.
 The lookup field is ``SAML_DJANGO_USER_MAIN_ATTRIBUTE``, the model's
 ``USERNAME_FIELD``, or ``username``.
 A new user is constructed with that field.
-``set_unusable_password()`` is then called on it.
+``set_unusable_password()`` is called when the model defines it.
 Django restores the session from ``AUTH_USER_MODEL``.
 Set ``SAML_USER_MODEL`` to that same model.
 

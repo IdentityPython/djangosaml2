@@ -255,6 +255,21 @@ class Saml2BackendTests(TestCase):
         user = self.backend._update_user(user, attributes, attribute_mapping, created)
         self.assertIs(user.email_verified, True)
 
+    @override_settings(SAML_USER_MODEL="testprofiles.StandaloneUserModel")
+    def test_create_user_without_set_unusable_password(self):
+        user, created = self.backend.get_or_create_user(
+            self.backend._user_lookup_attribute,
+            "ada",
+            True,
+            None,
+            None,
+            None,
+            None,
+        )
+        self.assertTrue(created)
+        self.assertEqual(user.username, "ada")
+        self.assertFalse(hasattr(user, "set_unusable_password"))
+
     def test_django_user_main_attribute(self):
         old_username_field = get_user_model().USERNAME_FIELD
         get_user_model().USERNAME_FIELD = "slug"
