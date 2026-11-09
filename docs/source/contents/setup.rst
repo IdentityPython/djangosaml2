@@ -73,10 +73,7 @@ have the "Secure" attribute, which is required in order to use "SameSite=None", 
 
 .. Note::
 
-  djangosaml2 will by default attempt to set the ``SameSite`` attribute of the SAML session cookie to ``None`` so that it can be
-  used in cross-site requests, but this is only possible with Django 3.1 or higher. If you are experiencing issues with
-  unsolicited requests or cookies not being sent (particularly when using the HTTP-POST binding), consider upgrading
-  to Django 3.1 or higher. If you can't do that, configure "allow_unsolicited" to True in pySAML2 configuration.
+  The SAML session cookie uses ``SameSite=None`` so the browser sends it on the cross-site POST binding. Browsers accept that value only together with ``Secure``.
 
 Authentication backend
 ======================
@@ -483,14 +480,11 @@ URLs
 Changes in the urls.py file.
  The next thing you need to do is to include ``djangosaml2.urls`` module in your main ``urls.py`` module::
 
-  urlpatterns = patterns(
-      '',
-      #  lots of url definitions here
+  from django.urls import include, path
 
-      (r'saml2/', include('djangosaml2.urls')),
-
-      #  more url definitions
-  )
+  urlpatterns = [
+      path('saml2/', include('djangosaml2.urls')),
+  ]
 
 PySAML2 specific files and configuration
 ----------------------------------------

@@ -1,6 +1,5 @@
 import time
 
-from django import VERSION
 from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 from django.utils.cache import patch_vary_headers
@@ -9,8 +8,7 @@ from django.utils.http import http_date
 from django.contrib.sessions.backends.base import UpdateError
 from django.contrib.sessions.middleware import SessionMiddleware
 
-django_version = float("{}.{}".format(*VERSION[:2]))
-SAMESITE_NONE = None if django_version < 3.1 else "None"
+SAMESITE_NONE = "None"
 
 
 class SamlSessionMiddleware(SessionMiddleware):

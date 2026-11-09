@@ -708,6 +708,19 @@ class CSPHandlerTests(TestCase):
         self.assertNotIn('nonce=""', html)
         self.assertNotIn("nonce=\"<CSP_NONCE_SENTINEL>\"", html)
 
+    def test_example_post_binding_form_uses_the_same_nonce(self):
+        request = HttpRequest()
+        request.csp_nonce = "django-csp-nonce"
+        html = render_to_string(
+            "djangosaml2/example_post_binding_form.html",
+            {
+                "target_url": "https://idp.example.org/sso",
+                "params": {},
+                "request": request,
+            },
+        )
+        self.assertIn('nonce="django-csp-nonce"', html)
+
     def test_post_binding_form_omits_nonce_without_csp(self):
         request = HttpRequest()
         html = render_to_string(

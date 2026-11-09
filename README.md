@@ -1,7 +1,7 @@
 djangosaml2
 ===========
 
-![CI build](https://github.com/peppelinux/djangosaml2/workflows/djangosaml2/badge.svg)
+![CI build](https://github.com/IdentityPython/djangosaml2/workflows/djangosaml2/badge.svg)
 ![pypi](https://img.shields.io/pypi/v/djangosaml2.svg)
 [![Downloads](https://pepy.tech/badge/djangosaml2/month)](https://pepy.tech/project/djangosaml2)
 ![Documentation Status](https://readthedocs.org/projects/djangosaml2/badge/?version=latest)
@@ -36,8 +36,7 @@ Please open Issues to start debate regarding the requested
 features, or the patch that you would apply. We do not use
 a strict submission format, please try to be more concise as possible.
 
-The Pull Request MUST be done on the dev branch, please don't
-push code directly on the master branch.
+Open the pull request against the master branch.
 
 
 Special thanks

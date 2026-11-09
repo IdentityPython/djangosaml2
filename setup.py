@@ -63,7 +63,7 @@ setup(
     zip_safe=False,
     install_requires=[
         "defusedxml>=0.4.1",
-        "Django>=5.2.17",
+        "Django>=5.2.17,!=6.0.0,!=6.0.1,!=6.0.2,!=6.0.3,!=6.0.4,!=6.0.5,!=6.0.6,!=6.0.7,!=6.1.0",
         "pysaml2>=7.5.5",
         "cryptography>=50.0.0",
         "pyopenssl>=26.4.0",

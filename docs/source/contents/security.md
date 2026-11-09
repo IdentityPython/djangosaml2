@@ -42,10 +42,7 @@ result to the POST binding responses. Add `django.template.context_processors.cs
 so the autosubmit script receives `csp_nonce`. If both integrations are
 configured, django-csp is used.
 
-Note that to enable autosubmit of post-bindings inline-javascript is used. To
-allow execution of this autosubmit-code a nonce is included, which works in
-default configuration but may not work if you modify `CSP_INCLUDE_NONCE_IN`
-to exclude `script-src`.
+Autosubmit of the POST binding uses inline JavaScript, and the form template includes a nonce when one is available. With django-csp, that nonce is part of the default configuration and is omitted when `CSP_INCLUDE_NONCE_IN` excludes `script-src`. With Django's built-in CSP, include the nonce sentinel in `script-src` and enable the `csp` context processor.
 
 You can specify a custom CSP handler via the `SAML_CSP_HANDLER` setting and the
 warning can be disabled by setting `SAML_CSP_HANDLER=''`. See the 
