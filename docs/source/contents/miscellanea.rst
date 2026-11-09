@@ -73,13 +73,10 @@ Okta sample configuration for setting up an Okta SSO with Django::
             # attributes that this project need to identify a user
             'required_attributes': ['email'],
 
-            # in this section the list of IdPs we talk to are defined
+            # Login reads the identity providers from the metadata.
+            # The idp query parameter selects the recipient when the metadata lists more than one.
+            # The discovery page appears when the metadata lists more than one identity provider.
             'idp': {
-                # we do not need a WAYF service since there is
-                # only an IdP defined here. This IdP should be
-                # present in our metadata
-
-                # the keys of this dictionary are entity ids
                 'https://xxx.okta.com/app/XXXXXXXXXX/sso/saml/metadata': {
                     # Okta only uses HTTP_POST disable this
                     # 'single_sign_on_service': {

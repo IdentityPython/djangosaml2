@@ -717,14 +717,10 @@ settings.py file under the SAML_CONFIG option. We will see a typical configurati
             # a respective SAML Authentication Request.
             'allow_unsolicited': False,
 
-            # in this section the list of IdPs we talk to are defined
-            # This is not mandatory! All the IdP available in the metadata will be considered instead.
+            # Login reads the identity providers from the metadata.
+            # The idp query parameter selects the recipient when the metadata lists more than one.
+            # The discovery page appears when the metadata lists more than one identity provider.
             'idp': {
-                # we do not need a WAYF service since there is
-                # only an IdP defined here. This IdP should be
-                # present in our metadata
-
-                # the keys of this dictionary are entity ids
                 'https://localhost/simplesaml/saml2/idp/metadata.php': {
                     'single_sign_on_service': {
                         saml2.BINDING_HTTP_REDIRECT: 'https://localhost/simplesaml/saml2/idp/SSOService.php',
