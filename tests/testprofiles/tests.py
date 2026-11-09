@@ -634,6 +634,21 @@ class LoginViewSignAlgTests(TestCase):
         self.assertIn("sign_alg", kwargs)
         self.assertEqual(kwargs["sign_alg"], xmldsig.SIG_RSA_SHA256)
         self.assertNotIn("sigalg", kwargs)
+class _LazyCspNonce:
+    """A nonce that stays false until it is rendered as a string."""
+
+    def __init__(self):
+        self._nonce = None
+
+    def __bool__(self):
+        return self._nonce is not None
+
+    def __str__(self):
+        if self._nonce is None:
+            self._nonce = "django-csp-nonce"
+        return self._nonce
+
+
 class CSPHandlerTests(TestCase):
     def test_get_csp_handler_none(self):
         get_csp_handler.cache_clear()
@@ -745,7 +760,8 @@ class CSPHandlerTests(TestCase):
 
     def test_post_binding_form_uses_django_csp_nonce(self):
         request = HttpRequest()
-        request.csp_nonce = "django-csp-nonce"
+        request.csp_nonce = _LazyCspNonce()
+        self.assertFalse(request.csp_nonce)
         html = render_to_string(
             "djangosaml2/post_binding_form.html",
             {
@@ -777,7 +793,8 @@ class CSPHandlerTests(TestCase):
 
     def test_example_post_binding_form_uses_the_same_nonce(self):
         request = HttpRequest()
-        request.csp_nonce = "django-csp-nonce"
+        request.csp_nonce = _LazyCspNonce()
+        self.assertFalse(request.csp_nonce)
         html = render_to_string(
             "djangosaml2/example_post_binding_form.html",
             {
@@ -790,7 +807,8 @@ class CSPHandlerTests(TestCase):
 
     def test_logout_post_binding_form_uses_django_csp_nonce(self):
         request = HttpRequest()
-        request.csp_nonce = "django-csp-nonce"
+        request.csp_nonce = _LazyCspNonce()
+        self.assertFalse(request.csp_nonce)
         html = render_to_string(
             "djangosaml2/logout_post_binding_form.html",
             {
