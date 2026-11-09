@@ -265,6 +265,11 @@ setting::
 
   SAML_CONFIG_LOADER = 'python.path.to.your.callable'
 
+The callable uses the request to choose the tenant.
+It copies ``SAML_CONFIG`` and sets that tenant's identity-provider metadata.
+It returns the ``SPConfig``.
+The application supplies the tenant query.
+
 Bearer Assertion Replay Attack Prevention
 =========================================
 In SAML standard doc, section 4.1.4.5 it states
