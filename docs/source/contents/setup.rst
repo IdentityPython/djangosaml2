@@ -407,6 +407,11 @@ Particularly useful when you only plan to use
 IdP initiated login and the IdP does not have a configured RelayState
 parameter. If not set Django's ``LOGIN_REDIRECT_URL`` or ``/`` will be used.
 
+The page after login reads the attributes from the SAML session.
+``EchoAttributesView`` loads them with ``client.users.get_identity`` and the subject id stored at login.
+Point ``ACS_DEFAULT_REDIRECT_URL`` or the ``RelayState`` at that view.
+``assertion_info`` is available while the assertion consumer checks the response.
+
 The other thing you will probably want to configure is the mapping of
 SAML2 user attributes to Django user attributes. By default only the
 User.username attribute is mapped but you can add more attributes or
